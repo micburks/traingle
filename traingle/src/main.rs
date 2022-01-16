@@ -1,8 +1,13 @@
+mod point;
+mod face;
+
+use point::Point;
+use face::Face;
+
 use image::io::Reader as ImageReader;
 use rand::prelude::*;
 use rand_distr::StandardNormal;
 use spade::delaunay::FloatDelaunayTriangulation;
-use spade::{PointN, TwoDimensional};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args();
@@ -13,7 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("w: {}, h: {}", width, height);
 
     // Convert image to set of pixels
-    let pixels = img.pixels();
+    // let pixels = img.pixels();
 
     // Create random points across image
     let mut points = vec![];
@@ -85,106 +90,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         image::ColorType::Rgb8,
     )?;
     Ok(())
-}
-
-#[derive(Debug)]
-struct Point(f32, f32);
-
-impl Point {
-    fn new(x: f32, y: f32) -> Point {
-        Point(x, y)
-    }
-}
-
-impl std::ops::Add for Point {
-    type Output = Self;
-    fn add(self, other: Self) -> Self {
-        Self::new(self.0 + other.0, self.1 + other.1)
-    }
-}
-impl std::ops::Sub for Point {
-    type Output = Self;
-    fn sub(self, other: Self) -> Self {
-        Self::new(self.0 - other.0, self.1 - other.1)
-    }
-}
-impl std::ops::Div<f32> for Point {
-    type Output = Self;
-    fn div(self, rhs: f32) -> Self {
-        Self::new(self.0 / rhs, self.1 / rhs)
-    }
-}
-impl std::cmp::Eq for Point {}
-impl std::cmp::PartialEq for Point {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
-    }
-}
-impl Copy for Point {}
-impl Clone for Point {
-    fn clone(&self) -> Self {
-        Self::new(self.0, self.1)
-    }
-}
-impl PointN for Point {
-    type Scalar = f32;
-    fn dimensions() -> usize {
-        2
-    }
-    fn from_value(v: f32) -> Self {
-        Self::new(v, v)
-    }
-    fn nth(&self, s: usize) -> &f32 {
-        if s == 0 {
-            &self.0
-        } else {
-            &self.1
-        }
-    }
-    fn nth_mut(&mut self, s: usize) -> &mut f32 {
-        if s == 0 {
-            &mut self.0
-        } else {
-            &mut self.1
-        }
-    }
-}
-impl TwoDimensional for Point {}
-
-#[derive(Debug)]
-struct Face(Point, Point, Point, image::Rgb<u8>);
-
-impl Face {
-    fn new(p1: Point, p2: Point, p3: Point, color: image::Rgb<u8>) -> Face {
-        Face(p1, p2, p3, color)
-    }
-    fn contains(&self, p: Point) -> bool {
-        let v0 = self.2 - self.0;
-        let v1 = self.1 - self.0;
-        let v2 = p - self.0;
-
-        let d00 = dot(v0, v0);
-        let d01 = dot(v0, v1);
-        let d02 = dot(v0, v2);
-        let d11 = dot(v1, v1);
-        let d12 = dot(v1, v2);
-
-        let inv_denom = 1.0 / det(Point(d00, d01), Point(d01, d11));
-        let u = det(Point(d11, d01), Point(d12, d02)) * inv_denom;
-        let v = det(Point(d00, d01), Point(d02, d12)) * inv_denom;
-        (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0)
-    }
-    fn color(&self) -> image::Rgb<u8> {
-        self.3
-    }
-}
-
-fn dot(a: Point, b: Point) -> f32 {
-    (a.0 * b.0) + (a.1 * b.1)
-}
-
-fn det(a: Point, b: Point) -> f32 {
-    (a.0 * b.1) - (a.1 * b.0)
 }
 
 fn random() -> f32 {
