@@ -236,6 +236,7 @@ impl Face {
         //let a = (det(p, self.2) - det(self.0, self.2)) / det(self.1, self.2);
         //let b = -((det(p, self.1) - det(self.0, self.1)) / det(self.1, self.2));
         //a > 0.0 && b > 0.0 && (a + b) < 1.0
+        (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0)
     }
     fn color(&self) -> image::Rgb<u8> {
         self.3
