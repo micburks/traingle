@@ -1,8 +1,8 @@
+use image::io::Reader as ImageReader;
 use rand::prelude::*;
 use rand_distr::StandardNormal;
-use image::io::Reader as ImageReader;
-use spade::{PointN, TwoDimensional};
 use spade::delaunay::FloatDelaunayTriangulation;
+use spade::{PointN, TwoDimensional};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Read in image
@@ -17,13 +17,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut points = vec![];
     let x_inc = 10;
     let y_inc = 10;
-    for i in 0..x_inc {
-        for j in 0..y_inc {
-            points.push(
-                Point(
-                    (i * (width / x_inc)) as f32,
-                    (j * (height / y_inc)) as f32,
-                ));
+    for i in 0..x_inc + 1 {
+        for j in 0..y_inc + 1 {
+            points.push(Point(
+                (i * (width / x_inc)) as f32,
+                (j * (height / y_inc)) as f32,
+            ));
         }
     }
 
@@ -37,13 +36,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for face in delaunay.triangles() {
         let triangle = face.as_triangle();
         let centerpoint = (*triangle[0] + *triangle[1] + *triangle[2]) / 3.0;
-        tris.push(
-            Face::new(
-                *triangle[0],
-                *triangle[1],
-                *triangle[2],
-                *img.get_pixel(centerpoint.0 as u32, centerpoint.1 as u32),
-            ));
+        tris.push(Face::new(
+            *triangle[0],
+            *triangle[1],
+            *triangle[2],
+            *img.get_pixel(centerpoint.0 as u32, centerpoint.1 as u32),
+        ));
     }
 
     // Calculate fitness and create 0th generation
@@ -64,9 +62,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let x = (i % width) as f32;
         let y = (i / width) as f32;
         for t in &tris {
-            if t.contains(x, y) {
+            if t.contains(Point::new(x, y)) {
                 let color = t.color();
                 let [r, g, b] = color.0;
+                // println!("contained! {}, {}, {}", r, g, b);
                 buf.push(r as u8);
                 buf.push(g as u8);
                 buf.push(b as u8);
@@ -90,8 +89,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Write image
-    println!("done here, {} but should be {}", buf.len(), width * height * 3);
-    image::save_buffer("output.jpg", &buf[..], width, height, image::ColorType::Rgb8)?;
+    println!("done here, pixels: {}/{}", buf.len(), width * height * 3);
+    image::save_buffer(
+        "output.jpg",
+        &buf[..],
+        width,
+        height,
+        image::ColorType::Rgb8,
+    )?;
     Ok(())
 }
 
@@ -110,6 +115,12 @@ impl std::ops::Add for Point {
         Self::new(self.0 + other.0, self.1 + other.1)
     }
 }
+impl std::ops::Sub for Point {
+    type Output = Self;
+    fn sub(self, other: Self) -> Self {
+        Self::new(self.0 - other.0, self.1 - other.1)
+    }
+}
 impl std::ops::Div<f32> for Point {
     type Output = Self;
     fn div(self, rhs: f32) -> Self {
@@ -124,7 +135,7 @@ impl std::cmp::PartialEq for Point {
 }
 impl Copy for Point {}
 impl Clone for Point {
-    fn clone(&self) -> Self{
+    fn clone(&self) -> Self {
         Self::new(self.0, self.1)
     }
 }
@@ -154,22 +165,77 @@ impl PointN for Point {
 impl TwoDimensional for Point {}
 
 #[derive(Debug)]
-struct Face (
-    Point,
-    Point,
-    Point,
-    image::Rgb<u8>,
-);
+struct Face(Point, Point, Point, image::Rgb<u8>);
+
+// function SameSide(p1,p2, a,b)
+//     cp1 = CrossProduct(b-a, p1-a)
+//     cp2 = CrossProduct(b-a, p2-a)
+//     if DotProduct(cp1, cp2) >= 0 then return true
+//     else return false
+//
+// function PointInTriangle(p, a,b,c)
+//     if SameSide(p,a, b,c) and SameSide(p,b, a,c)
+//         and SameSide(p,c, a,b) then return true
+//     else return false
+//
+// fn same_side(p1: Point, p2: Point, a: Point, b: Point) -> bool {
+//     let cp1 = cross(b - a, p1 - a);
+//     let cp2 = cross(b - a, p2 - a);
+//     dot(cp1, cp2) >= 0.0
+// }
+
+fn dot(a: Point, b: Point) -> f32 {
+    (a.0 * b.0) + (a.1 * b.1)
+}
+
+// // Compute vectors
+// v0 = C - A
+// v1 = B - A
+// v2 = P - A
+//
+// // Compute dot products
+// dot00 = dot(v0, v0)
+// dot01 = dot(v0, v1)
+// dot02 = dot(v0, v2)
+// dot11 = dot(v1, v1)
+// dot12 = dot(v1, v2)
+//
+// // Compute barycentric coordinates
+// invDenom = 1 / (dot00 * dot11 - dot01 * dot01)
+// u = (dot11 * dot02 - dot01 * dot12) * invDenom
+// v = (dot00 * dot12 - dot01 * dot02) * invDenom
+//
+// // Check if point is in triangle
+// return (u >= 0) && (v >= 0) && (u + v < 1)
 
 impl Face {
     fn new(p1: Point, p2: Point, p3: Point, color: image::Rgb<u8>) -> Face {
         Face(p1, p2, p3, color)
     }
-    fn contains(&self, x: f32, y: f32) -> bool {
-        let v = Point::new(x, y);
-        let a = (det(v, self.2) - det(self.0, self.2)) / det(self.1, self.2);
-        let b = -((det(v, self.1) - det(self.0, self.1)) / det(self.1, self.2));
-        a > 0.0 && b > 0.0 && (a + b) < 1.0
+    fn contains(&self, p: Point) -> bool {
+        let v0 = self.2 - self.0;
+        let v1 = self.1 - self.0;
+        let v2 = p - self.0;
+
+        let d00 = dot(v0, v0);
+        let d01 = dot(v0, v1);
+        let d02 = dot(v0, v2);
+        let d11 = dot(v1, v1);
+        let d12 = dot(v1, v2);
+
+        let inv_denom = 1.0 / ((d00 * d11) - (d01 * d01));
+        // let invDenom = 1.0 / dot(Point(d00, d01), Point(d01, d11));
+        let u = ((d11 * d02) - (d01 * d12)) * inv_denom;
+        // let u = dot(Point(d11, d01), Point(d12, d02)) * invDenom;
+        let v = ((d00 * d12) - (d01 * d02)) * inv_denom;
+        // let v = dot(Point(d00, d01), Point(d02, d12)) * invDenom;
+        return (u >= 0.0) && (v >= 0.0) && (u + v < 1.0);
+
+        // same_side(p, a, b, c) && same_side(p, b, a, c) && same_side(p, c, a, b)
+
+        //let a = (det(p, self.2) - det(self.0, self.2)) / det(self.1, self.2);
+        //let b = -((det(p, self.1) - det(self.0, self.1)) / det(self.1, self.2));
+        //a > 0.0 && b > 0.0 && (a + b) < 1.0
     }
     fn color(&self) -> image::Rgb<u8> {
         self.3
@@ -178,7 +244,7 @@ impl Face {
 
 // determinant
 fn det(a: Point, b: Point) -> f32 {
-   (a.0 * b.1) - (a.1 * b.0)
+    (a.0 * b.1) - (a.1 * b.0)
 }
 
 fn random() -> f32 {
@@ -188,10 +254,7 @@ fn random() -> f32 {
 
 // will have to mess with normal distribution here
 fn mutate(point: &Point) -> Point {
-    Point (
-        point.0 + (random() * 0.5),
-        point.1 + (random() * 0.5),
-    )
+    Point(point.0 + (random() * 0.5), point.1 + (random() * 0.5))
 }
 
 // Fitness is the variance
