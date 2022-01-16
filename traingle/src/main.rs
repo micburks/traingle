@@ -5,8 +5,10 @@ use spade::delaunay::FloatDelaunayTriangulation;
 use spade::{PointN, TwoDimensional};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Read in image
-    let img = ImageReader::open("test_image.jpg")?.decode()?.to_rgb8();
+    let mut args = std::env::args();
+    args.next();
+    let filename = args.next().unwrap();
+    let img = ImageReader::open(filename)?.decode()?.to_rgb8();
     let (width, height) = img.dimensions();
     println!("w: {}, h: {}", width, height);
 
