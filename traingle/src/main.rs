@@ -65,27 +65,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if t.contains(Point::new(x, y)) {
                 let color = t.color();
                 let [r, g, b] = color.0;
-                // println!("contained! {}, {}, {}", r, g, b);
                 buf.push(r as u8);
                 buf.push(g as u8);
                 buf.push(b as u8);
                 continue '_outer;
             }
         }
-        // make purple to debug why we get here
-        buf.push(200);
-        buf.push(0);
-        buf.push(200);
-        /*
-        let x: f32 = (i % width) as f32;
-        let y: f32 = (i / width) as f32;
-        let r = x / width as f32;
-        let g = y / height as f32;
-        let b = 0.25;
-        buf.push((r * 256.0) as u8);
-        buf.push((g * 256.0) as u8);
-        buf.push((b * 256.0) as u8);
-        */
     }
 
     // Write image
@@ -167,47 +152,6 @@ impl TwoDimensional for Point {}
 #[derive(Debug)]
 struct Face(Point, Point, Point, image::Rgb<u8>);
 
-// function SameSide(p1,p2, a,b)
-//     cp1 = CrossProduct(b-a, p1-a)
-//     cp2 = CrossProduct(b-a, p2-a)
-//     if DotProduct(cp1, cp2) >= 0 then return true
-//     else return false
-//
-// function PointInTriangle(p, a,b,c)
-//     if SameSide(p,a, b,c) and SameSide(p,b, a,c)
-//         and SameSide(p,c, a,b) then return true
-//     else return false
-//
-// fn same_side(p1: Point, p2: Point, a: Point, b: Point) -> bool {
-//     let cp1 = cross(b - a, p1 - a);
-//     let cp2 = cross(b - a, p2 - a);
-//     dot(cp1, cp2) >= 0.0
-// }
-
-fn dot(a: Point, b: Point) -> f32 {
-    (a.0 * b.0) + (a.1 * b.1)
-}
-
-// // Compute vectors
-// v0 = C - A
-// v1 = B - A
-// v2 = P - A
-//
-// // Compute dot products
-// dot00 = dot(v0, v0)
-// dot01 = dot(v0, v1)
-// dot02 = dot(v0, v2)
-// dot11 = dot(v1, v1)
-// dot12 = dot(v1, v2)
-//
-// // Compute barycentric coordinates
-// invDenom = 1 / (dot00 * dot11 - dot01 * dot01)
-// u = (dot11 * dot02 - dot01 * dot12) * invDenom
-// v = (dot00 * dot12 - dot01 * dot02) * invDenom
-//
-// // Check if point is in triangle
-// return (u >= 0) && (v >= 0) && (u + v < 1)
-
 impl Face {
     fn new(p1: Point, p2: Point, p3: Point, color: image::Rgb<u8>) -> Face {
         Face(p1, p2, p3, color)
@@ -223,19 +167,9 @@ impl Face {
         let d11 = dot(v1, v1);
         let d12 = dot(v1, v2);
 
-        let inv_denom = 1.0 / ((d00 * d11) - (d01 * d01));
-        // let invDenom = 1.0 / dot(Point(d00, d01), Point(d01, d11));
-        let u = ((d11 * d02) - (d01 * d12)) * inv_denom;
-        // let u = dot(Point(d11, d01), Point(d12, d02)) * invDenom;
-        let v = ((d00 * d12) - (d01 * d02)) * inv_denom;
-        // let v = dot(Point(d00, d01), Point(d02, d12)) * invDenom;
-        return (u >= 0.0) && (v >= 0.0) && (u + v < 1.0);
-
-        // same_side(p, a, b, c) && same_side(p, b, a, c) && same_side(p, c, a, b)
-
-        //let a = (det(p, self.2) - det(self.0, self.2)) / det(self.1, self.2);
-        //let b = -((det(p, self.1) - det(self.0, self.1)) / det(self.1, self.2));
-        //a > 0.0 && b > 0.0 && (a + b) < 1.0
+        let inv_denom = 1.0 / det(Point(d00, d01), Point(d01, d11));
+        let u = det(Point(d11, d01), Point(d12, d02)) * inv_denom;
+        let v = det(Point(d00, d01), Point(d02, d12)) * inv_denom;
         (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0)
     }
     fn color(&self) -> image::Rgb<u8> {
@@ -243,7 +177,10 @@ impl Face {
     }
 }
 
-// determinant
+fn dot(a: Point, b: Point) -> f32 {
+    (a.0 * b.0) + (a.1 * b.1)
+}
+
 fn det(a: Point, b: Point) -> f32 {
     (a.0 * b.1) - (a.1 * b.0)
 }
