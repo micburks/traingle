@@ -1,11 +1,41 @@
+use rand::prelude::*;
+use rand_distr::StandardNormal;
 use spade::{PointN, TwoDimensional};
 
 #[derive(Debug)]
-pub struct Point(pub f32, pub f32);
+pub struct Point(pub f32, pub f32, pub f32);
+
+const MAX_DEV: f32 = 10.0;
 
 impl Point {
     pub fn new(x: f32, y: f32) -> Point {
-        Point(x, y)
+        Point(x, y, 0.0)
+    }
+    pub fn clone(&self) -> Point {
+        Point(self.0, self.1, 0.0)
+    }
+    pub fn add_fitness(&mut self, fitness: f32) -> () {
+        self.2 += fitness;
+    }
+    pub fn mutate(&mut self, width: u32, height: u32) -> Point {
+        // will have to mess with normal distribution here
+        if self.0 != 0.0 && self.0 != width as f32 {
+            self.0 += random(MAX_DEV);
+            if self.0 > width as f32 {
+                self.0 = width as f32;
+            } else if self.0 < 0.0 {
+                self.0 = 0.0
+            }
+        }
+        if self.1 != 0.0 && self.1 != height as f32 {
+            self.1 += random(MAX_DEV);
+            if self.1 > height as f32 {
+                self.1 = height as f32;
+            } else if self.1 < 0.0 {
+                self.1 = 0.0;
+            }
+        }
+        *self
     }
 }
 
@@ -63,3 +93,8 @@ impl PointN for Point {
     }
 }
 impl TwoDimensional for Point {}
+
+fn random(max: f32) -> f32 {
+    let val: f32 = thread_rng().sample(StandardNormal);
+    (val - 0.5) * max
+}
