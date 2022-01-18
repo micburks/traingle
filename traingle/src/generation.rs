@@ -3,7 +3,7 @@ use super::img::Img;
 use super::member::{Member, MemberType};
 use super::point::Point;
 
-use spade::delaunay::{FloatDelaunayTriangulation, VertexHandle};
+use spade::delaunay::FloatDelaunayTriangulation;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -87,6 +87,7 @@ impl<'a> Generation<'a> {
         // Move face fitness to points
         for f in &mut faces {
             f.move_fitness();
+            f.print_fitness();
         }
 
         // check whether mutations were beneficial
@@ -140,7 +141,7 @@ impl<'a> Generation<'a> {
             let y = i as f32 / width;
             for face in &faces {
                 if face.contains(Point::new(x, y)) {
-                    let [r, g, b] = face.color().0;
+                    let [r, g, b] = face.color.0;
                     buf.push(r as u8);
                     buf.push(g as u8);
                     buf.push(b as u8);
