@@ -8,6 +8,7 @@ use generation::Generation;
 use img::Img;
 
 use image::io::Reader as ImageReader;
+use std::time::Instant;
 
 const X_SEGMENTS: u32 = 10;
 const Y_SEGMENTS: u32 = 10;
@@ -28,12 +29,15 @@ fn get_points((w, h): (f32, f32)) -> Vec<(f32, f32)> {
     points
 }
 
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args();
     args.next();
     let filename = args.next().unwrap();
     let img = Img::new(ImageReader::open(filename)?.decode()?.to_rgb8());
     println!("(w, h): {:?}", img.dimensions());
+
+    let now = Instant::now();
 
     // Calculate fitness and create 0th generation
     let initial_points = get_points(img.dimensions());
@@ -42,8 +46,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     gen.write(String::from("output-0.jpg"));
     let mut previous = gen.base();
 
+    let elapsed_time = now.elapsed();
+    println!("Generation 0 took {} seconds.", elapsed_time.as_secs());
+
     // Generation loop:
     for i in 0..GENERATIONS {
+        let now = Instant::now();
+
         // - Create generation from previous generation (new base members)
         let mut gen = Generation::new(previous, &img);
         // - Mutate each base member equal number of times
@@ -56,6 +65,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // - Sort all members by fitness
         previous = gen.get_best_points();
         gen.write(format!("output-{}.jpg", i + 1));
+
+        let elapsed_time = now.elapsed();
+        println!("Generation {} took {} seconds.", i + 1, elapsed_time.as_secs());
     }
 
     Ok(())
