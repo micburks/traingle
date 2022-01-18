@@ -2,7 +2,7 @@ use super::img::Img;
 use super::member::Member;
 use super::point::Point;
 
-use spade::delaunay::VertexHandle;
+use spade::delaunay::{VertexHandle, FaceHandle};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -22,14 +22,14 @@ pub struct Face {
 const SAMPLES: u32 = 5;
 impl Face {
     pub fn new(
-        triangle: Box<[VertexHandle<Point, ()>; 3]>,
+        del_triangle: Box<[VertexHandle<Point, ()>; 3]>,
         members: &Vec<Rc<RefCell<Member>>>,
         index: usize,
         img: &Img,
     ) -> Face {
-        let v1 = *triangle[0];
-        let v2 = *triangle[1];
-        let v3 = *triangle[2];
+        let v1 = *del_triangle[0];
+        let v2 = *del_triangle[1];
+        let v3 = *del_triangle[2];
 
         let mut m1_opt = None;
         let mut m2_opt = None;
@@ -124,6 +124,39 @@ impl Face {
             self.points.1.borrow().mutation(self.index).fitness,
             self.points.2.borrow().mutation(self.index).fitness,
         );
+    }
+    pub fn is_same(&self, face_handle: FaceHandle<Point, ()>) -> bool {
+        let p0 = self.points.0.borrow().values(0);
+        let p1 = self.points.1.borrow().values(0);
+        let p2 = self.points.2.borrow().values(0);
+        for tri in face_handle.as_triangle() {
+            if p0.0 == tri.0 && p0.1 == tri.1 {
+                continue;
+            }
+            if p1.0 == tri.0 && p1.1 == tri.1 {
+                continue;
+            }
+            if p2.0 == tri.0 && p2.1 == tri.1 {
+                continue;
+            }
+            return false;
+        }
+        true
+    }
+    pub fn has_vertex(&self, vertex: VertexHandle<Point, ()>) -> bool {
+        let p0 = self.points.0.borrow().values(0);
+        let p1 = self.points.1.borrow().values(0);
+        let p2 = self.points.2.borrow().values(0);
+        if p0.0 == vertex.0 && p0.1 == vertex.1 {
+            return true;
+        }
+        if p1.0 == vertex.0 && p1.1 == vertex.1 {
+            return true;
+        }
+        if p2.0 == vertex.0 && p2.1 == vertex.1 {
+            return true;
+        }
+        false
     }
 }
 

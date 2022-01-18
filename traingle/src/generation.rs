@@ -3,13 +3,17 @@ use super::img::Img;
 use super::member::{Member, MemberType};
 use super::point::Point;
 
-use spade::delaunay::FloatDelaunayTriangulation;
+use spade::delaunay::{
+    DelaunayTriangulation, DelaunayWalkLocate, FloatDelaunayTriangulation, PositionInTriangulation,
+};
+use spade::kernels::FloatKernel;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 pub struct Generation<'a> {
     base: Vec<Rc<RefCell<Member>>>,
     faces: Vec<Vec<Face>>,
+    dels: Vec<DelaunayTriangulation<Point, FloatKernel, DelaunayWalkLocate>>,
     img: &'a Img,
     mutations: usize,
 }
@@ -28,6 +32,7 @@ impl<'a> Generation<'a> {
                 })
                 .collect(),
             faces: vec![],
+            dels: vec![],
             img,
             mutations: 0,
         }
@@ -38,8 +43,9 @@ impl<'a> Generation<'a> {
                 point.borrow_mut().mutate();
             }
             self.mutations += 1;
-            self.faces
-                .push(self.triangulate_and_calculate_fitness(self.mutations));
+            let (faces, d) = self.triangulate_and_calculate_fitness(self.mutations);
+            self.faces.push(faces);
+            self.dels.push(d);
         }
     }
     pub fn aggregate_beneficial_mutations(&mut self) -> () {
@@ -47,10 +53,17 @@ impl<'a> Generation<'a> {
             base_member.borrow_mut().merge_mutations_into_base();
         }
         self.mutations += 1;
-        self.faces
-            .push(self.triangulate_and_calculate_fitness(self.mutations));
+        let (faces, d) = self.triangulate_and_calculate_fitness(self.mutations);
+        self.faces.push(faces);
+        self.dels.push(d);
     }
-    pub fn triangulate_and_calculate_fitness(&self, index: usize) -> Vec<Face> {
+    pub fn triangulate_and_calculate_fitness(
+        &self,
+        index: usize,
+    ) -> (
+        Vec<Face>,
+        DelaunayTriangulation<Point, FloatKernel, DelaunayWalkLocate>,
+    ) {
         // ) -> Vec<(Box<[VertexHandle<'static, Point, ()>; 3]>, image::Rgb<u8>)> {
         let (width, height) = self.img.dimensions();
 
@@ -87,7 +100,7 @@ impl<'a> Generation<'a> {
         // Move face fitness to points
         for f in &mut faces {
             f.move_fitness();
-            f.print_fitness();
+            // f.print_fitness();
         }
 
         // check whether mutations were beneficial
@@ -97,9 +110,14 @@ impl<'a> Generation<'a> {
             }
         }
 
-        faces
+        (faces, delaunay)
     }
-    pub fn get_best_faces(&self) -> Vec<Face> {
+    pub fn get_best_faces(
+        &self,
+    ) -> (
+        Vec<Face>,
+        DelaunayTriangulation<Point, FloatKernel, DelaunayWalkLocate>,
+    ) {
         let (width, height) = self.img.dimensions();
 
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
@@ -126,10 +144,10 @@ impl<'a> Generation<'a> {
             // faces.push(Box::new(triangle), Face::average_color(triangle, &self.img));
         }
 
-        faces
+        (faces, delaunay)
     }
     pub fn write(&self, filename: String) -> () {
-        let faces = self.get_best_faces();
+        let (faces, d) = self.get_best_faces();
         let (width, height) = self.img.dimensions();
 
         // Rasterize image
@@ -139,8 +157,30 @@ impl<'a> Generation<'a> {
             // find containing triangle
             let x = i as f32 % width;
             let y = i as f32 / width;
+            let l = d.locate(&Point::new(x, y));
+            let face_handle = match l {
+                PositionInTriangulation::InTriangle(f) => f,
+                PositionInTriangulation::OnEdge(e) => e.face(),
+                PositionInTriangulation::OnPoint(v) => {
+                    for face in &faces {
+                        if face.has_vertex(v) {
+                            let [r, g, b] = face.color.0;
+                            buf.push(r as u8);
+                            buf.push(g as u8);
+                            buf.push(b as u8);
+                            continue '_outer_raster;
+                        }
+                    }
+                    // should never be reached
+                    continue '_outer_raster;
+                }
+                _ => {
+                    // should never be reached
+                    continue '_outer_raster;
+                },
+            };
             for face in &faces {
-                if face.contains(Point::new(x, y)) {
+                if face.is_same(face_handle) {
                     let [r, g, b] = face.color.0;
                     buf.push(r as u8);
                     buf.push(g as u8);
@@ -148,12 +188,20 @@ impl<'a> Generation<'a> {
                     continue '_outer_raster;
                 }
             }
-            // some edges are still not hitting
+            // should never be reached
+            /*
             buf.push(255);
             buf.push(0);
             buf.push(255);
+            */
         }
 
+        println!(
+            "faces {}, buf {}, should be {}",
+            faces.len(),
+            buf.len(),
+            width * height * 3.0
+        );
         match image::save_buffer(
             filename,
             &buf[..],
