@@ -56,15 +56,24 @@ impl Member {
     }
     pub fn merge_mutations_into_base(&mut self) -> () {
         let mut aggregate = Point::from(self.point.values());
+        let mut beneficial_mutations = vec![];
+        let mut highest = 0.0;
         for mutation in &self.mutations {
             match mutation.source {
                 MemberType::Mutation(delta) => {
                     if mutation.is_beneficial {
-                        aggregate.mutate(delta, self.dimensions);
+                        beneficial_mutations.push((delta, mutation.fitness));
+                        if mutation.fitness > highest {
+                            highest = mutation.fitness;
+                        }
                     }
                 }
                 _ => (),
             }
+        }
+        for (delta, fitness) in beneficial_mutations {
+            let percent = fitness / highest;
+            aggregate.mutate(delta * percent, self.dimensions);
         }
         self.mutations.push(Member::new(
             MemberType::Base,

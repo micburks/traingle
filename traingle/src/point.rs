@@ -50,6 +50,12 @@ impl std::ops::Sub for Point {
         Self::new(self.0 - other.0, self.1 - other.1)
     }
 }
+impl std::ops::Mul<f32> for Point {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self {
+        Self::new(self.0 * rhs, self.1 * rhs)
+    }
+}
 impl std::ops::Div<f32> for Point {
     type Output = Self;
     fn div(self, rhs: f32) -> Self {
