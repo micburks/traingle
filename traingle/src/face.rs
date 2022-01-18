@@ -19,10 +19,6 @@ impl Triangle {
         if p.0 > self.3 .0 && p.1 > self.3 .1 {
             return false;
         }
-        // not actually necessary since we ascend through pixels
-        // if p.0 < self.min.0 && p.1 < self.min.1 {
-        //     return false;
-        // }
 
         let v0 = self.2 - self.0;
         let v1 = self.1 - self.0;
@@ -49,7 +45,6 @@ pub struct Face {
         Rc<RefCell<Member>>,
     ),
     color: image::Rgb<u8>,
-    // min: Point,
     max: Point,
     fitness: f32,
     index: usize,
@@ -121,7 +116,6 @@ impl Face {
         Face {
             points: (m1, m2, m3),
             color: image::Rgb([color.0 as u8, color.1 as u8, color.2 as u8]),
-            // min: Point::new(min(p1.0, p2.0, p3.0), min(p1.1, p2.1, p3.1)),
             max: Point::new(max(p1.0, p2.0, p3.0), max(p1.1, p2.1, p3.1)),
             fitness: 0.0,
             index,
@@ -200,10 +194,6 @@ impl Face {
         if p.0 > self.max.0 && p.1 > self.max.1 {
             return false;
         }
-        // not actually necessary since we ascend through pixels
-        // if p.0 < self.min.0 && p.1 < self.min.1 {
-        //     return false;
-        // }
 
         let v0 =
             *self.points.2.borrow().point(self.index) - *self.points.0.borrow().point(self.index);
@@ -252,9 +242,9 @@ impl Face {
     pub fn print_fitness(&self) -> () {
         println!(
             "{:?} {:?} {:?}",
-            self.points.0.borrow().point(self.index).fitness(),
-            self.points.1.borrow().point(self.index).fitness(),
-            self.points.2.borrow().point(self.index).fitness()
+            self.points.0.borrow().mutation(self.index).fitness(),
+            self.points.1.borrow().mutation(self.index).fitness(),
+            self.points.2.borrow().mutation(self.index).fitness(),
         );
     }
 }

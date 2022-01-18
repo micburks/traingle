@@ -10,7 +10,6 @@ use std::rc::Rc;
 pub struct Generation<'a> {
     base: Vec<Rc<RefCell<Member>>>,
     faces: Vec<Vec<Face>>,
-    // faces: Vec<Vec<(Box<[VertexHandle<'a, Point, ()>; 3]>, image::Rgb<u8>)>>,
     img: &'a Img,
     mutations: usize,
 }
@@ -43,7 +42,7 @@ impl<'a> Generation<'a> {
                 .push(self.triangulate_and_calculate_fitness(self.mutations));
         }
     }
-    pub fn copy_base_members_with_beneficial_mutations(&mut self) -> () {
+    pub fn aggregate_beneficial_mutations(&mut self) -> () {
         for base_member in &self.base {
             base_member.borrow_mut().merge_mutations_into_base();
         }
@@ -93,21 +92,13 @@ impl<'a> Generation<'a> {
         // check whether mutations were beneficial
         for m in &self.base {
             if index != 0 {
-                m.borrow_mut().check_if_beneficial(index);
+                m.borrow_mut().mark_beneficial_mutations(index);
             }
         }
 
-        // println!("{:?}", members);
-
         faces
-        /*
-        .into_iter()
-        .map(|face| (Box::new(face.triangle()), face.color()))
-        .collect()
-        */
     }
     pub fn get_best_faces(&self) -> Vec<Face> {
-        // ) -> Vec<(Box<[VertexHandle<'static, Point, ()>; 3]>, image::Rgb<u8>)> {
         let (width, height) = self.img.dimensions();
 
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
@@ -139,6 +130,7 @@ impl<'a> Generation<'a> {
     pub fn write(&self, filename: String) -> () {
         let faces = self.get_best_faces();
         let (width, height) = self.img.dimensions();
+
         // Rasterize image
         let num_pixels = (width * height) as u32;
         let mut buf = vec![];
@@ -161,7 +153,6 @@ impl<'a> Generation<'a> {
             buf.push(255);
         }
 
-        // Write image
         match image::save_buffer(
             filename,
             &buf[..],
@@ -178,7 +169,6 @@ impl<'a> Generation<'a> {
             Err(e) => println!("error {}", e),
         }
     }
-    pub fn find_beneficial_mutations(&self) -> () {}
     pub fn get_best_points(&self) -> Vec<(f32, f32)> {
         let mut ret = vec![];
         for m in &self.base {

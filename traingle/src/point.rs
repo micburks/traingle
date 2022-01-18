@@ -1,32 +1,17 @@
 use spade::{PointN, TwoDimensional};
 
 #[derive(Debug)]
-pub struct Point(pub f32, pub f32, pub f32, pub bool);
+pub struct Point(pub f32, pub f32);
 
 impl Point {
     pub fn new(x: f32, y: f32) -> Point {
-        Point(x, y, 0.0, false)
-    }
-    pub fn clone(x: f32, y: f32, fit: f32, ben: bool) -> Point {
-        Point(x, y, fit, ben)
+        Point(x, y)
     }
     pub fn from((x, y): (f32, f32)) -> Point {
-        Point(x, y, 0.0, false)
-    }
-    pub fn add_fitness(&mut self, fitness: f32) -> () {
-        self.2 += fitness;
+        Point(x, y)
     }
     pub fn values(&self) -> (f32, f32) {
         (self.0, self.1)
-    }
-    pub fn fitness(&self) -> f32 {
-        self.2
-    }
-    pub fn is_beneficial(&self) -> bool {
-        self.3
-    }
-    pub fn set_to_beneficial(&mut self) -> () {
-        self.3 = true;
     }
     pub fn mutate(&mut self, delta: Point, (width, height): (f32, f32)) -> Point {
         let mut x = self.0;
@@ -81,7 +66,7 @@ impl std::cmp::PartialEq for Point {
 impl Copy for Point {}
 impl Clone for Point {
     fn clone(&self) -> Self {
-        Self::clone(self.0, self.1, self.2, self.3)
+        Self::new(self.0, self.1)
     }
 }
 

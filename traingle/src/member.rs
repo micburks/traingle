@@ -10,6 +10,8 @@ pub struct Member {
     mutations: Vec<Member>,
     size: usize,
     dimensions: (f32, f32),
+    fitness: f32,
+    is_beneficial: bool,
 }
 
 impl Member {
@@ -17,7 +19,7 @@ impl Member {
         Member {
             source: source.clone(),
             point: match source {
-                MemberType::Base => Box::new(Point::new(point.0, point.1)),
+                MemberType::Base => Box::new(Point::from(point)),
                 MemberType::Mutation(delta) => {
                     Box::new(Point::from(point).mutate(delta, dimensions))
                 }
@@ -25,7 +27,25 @@ impl Member {
             mutations: vec![],
             size: 0,
             dimensions,
+            fitness: 0.0,
+            is_beneficial: false,
         }
+    }
+    pub fn mutation(&self, index: usize) -> &Member {
+        if index == 0 {
+            &self
+        } else {
+            if index > self.size {
+                panic!("size out of bounds");
+            }
+            &self.mutations[index - 1]
+        }
+    }
+    pub fn point(&self, index: usize) -> &Point {
+        &self.mutation(index).point
+    }
+    pub fn fitness(&self) -> f32 {
+        self.fitness
     }
     pub fn mutate(&mut self) -> () {
         // will have to mess with normal distribution here
@@ -37,22 +57,12 @@ impl Member {
         ));
         self.size += 1;
     }
-    pub fn point(&self, index: usize) -> &Point {
-        if index == 0 {
-            &self.point
-        } else {
-            if index > self.size {
-                panic!("size out of bounds");
-            }
-            &self.mutations[index - 1].point(0)
-        }
-    }
     pub fn merge_mutations_into_base(&mut self) -> () {
-        let mut aggregate = (*self.point).clone();
+        let mut aggregate = Point::from(self.point.values());
         for mutation in &self.mutations {
             match mutation.source {
                 MemberType::Mutation(delta) => {
-                    if aggregate.is_beneficial() {
+                    if mutation.is_beneficial {
                         aggregate.mutate(delta, self.dimensions);
                     }
                 }
@@ -66,63 +76,64 @@ impl Member {
         ));
         self.size += 1;
     }
-    pub fn set_to_beneficial(&mut self) -> () {
-        self.point.set_to_beneficial();
+    fn mark_as_beneficial(&mut self) -> () {
+        self.is_beneficial = true;
+        // self.point.mark_as_beneficial();
     }
-    pub fn check_if_beneficial(&mut self, index: usize) -> () {
-        // println!("{} {}", self.point(0).fitness(), self.point(index).fitness());
-        if index == 0 {
-            return;
-        }
-        if self.point(0).fitness() < self.point(index).fitness() {
-            if index > self.size {
-                panic!("size out of bounds");
+    pub fn mark_beneficial_mutations(&mut self, index: usize) -> () {
+        match self.source {
+            // only base members have mutations
+            MemberType::Base => {
+                // base members are not mutations
+                if index == 0 {
+                    return;
+                }
+                if index > self.size {
+                    panic!("size out of bounds");
+                }
+                if self.fitness < self.mutations[index - 1].fitness {
+                // if self.point(0).fitness() < self.point(index).fitness() {
+                    // self.mutations[index - 1].mark_as_beneficial();
+                    self.mutations[index - 1].is_beneficial = true;
+                }
             }
-            self.mutations[index - 1].set_to_beneficial();
+            _ => (),
         }
     }
     pub fn add_fitness(&mut self, index: usize, fitness: f32) -> () {
         if index == 0 {
-            self._add_fitness(fitness);
+            self.fitness += fitness;
+            //self._add_fitness(fitness);
         } else {
             if index > self.size {
                 panic!("size out of bounds");
             }
-            self.mutations[index - 1]._add_fitness(fitness);
+            self.mutations[index - 1].fitness += fitness;
+            // self.mutations[index - 1]._add_fitness(fitness);
         }
     }
-    pub fn _add_fitness(&mut self, fitness: f32) -> () {
-        self.point.add_fitness(fitness);
+    fn _add_fitness(&mut self, fitness: f32) -> () {
+        self.fitness += fitness;
+        // self.point.add_fitness(fitness);
     }
     pub fn get_best(&mut self) -> (f32, f32) {
         let mut index = 0;
-        let mut highest = self.point(0).fitness();
+        let mut highest = self.fitness;
+        // let mut highest = self.point(0).fitness();
         for (i, mutation) in (&self.mutations).into_iter().enumerate() {
-            if mutation.point(0).fitness() > highest {
+            if mutation.fitness > highest {
+            //if mutation.point(0).fitness() > highest {
                 index = i;
-                highest = mutation.point(0).fitness();
+                highest = mutation.fitness;
+                // highest = mutation.point(0).fitness();
             }
         }
-        self.point(index).values()
+        self.values(index)
     }
     pub fn values(&self, index: usize) -> (f32, f32) {
         self.point(index).values()
     }
 }
-
-/*
-impl Clone for Member {
-    fn clone(&self) -> Member {
-        Member {
-            source: self.source.clone(),
-            point: self.point.clone(),
-            mutations: self.mutations.to_vec(),
-            size: self.size,
-            dimensions: self.dimensions,
-        }
-    }
-}
-*/
 
 #[derive(Debug)]
 pub enum MemberType {
@@ -134,7 +145,7 @@ impl Clone for MemberType {
     fn clone(&self) -> MemberType {
         match self {
             MemberType::Base => MemberType::Base,
-            MemberType::Mutation(delta) => MemberType::Mutation(delta.clone()),
+            MemberType::Mutation(delta) => MemberType::Mutation(Point::from(delta.values())),
         }
     }
 }
