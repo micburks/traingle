@@ -122,7 +122,7 @@ impl<'a> Generation<'a> {
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new_without_index(Box::new(triangle), &members, &self.img));
+            faces.push(Face::new(Box::new(triangle), &members, 0, &self.img));
             // faces.push(Box::new(triangle), Face::average_color(triangle, &self.img));
         }
 
