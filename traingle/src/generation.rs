@@ -43,7 +43,8 @@ impl<'a> Generation<'a> {
                 point.borrow_mut().mutate();
             }
             self.mutations += 1;
-            let (faces, d) = self.triangulate_and_calculate_fitness(self.mutations);
+            let (mut faces, d) = self.triangulate(self.mutations);
+            self.calculate_fitness(&mut faces, &d);
             self.faces.push(faces);
             self.dels.push(d);
         }
@@ -53,20 +54,18 @@ impl<'a> Generation<'a> {
             base_member.borrow_mut().merge_mutations_into_base();
         }
         self.mutations += 1;
-        let (faces, d) = self.triangulate_and_calculate_fitness(self.mutations);
+        let (mut faces, d) = self.triangulate(self.mutations);
+        self.calculate_fitness(&mut faces, &d);
         self.faces.push(faces);
         self.dels.push(d);
     }
-    pub fn triangulate_and_calculate_fitness(
+    pub fn triangulate(
         &self,
         index: usize,
     ) -> (
         Vec<Face>,
         DelaunayTriangulation<Point, FloatKernel, DelaunayWalkLocate>,
     ) {
-        // ) -> Vec<(Box<[VertexHandle<'static, Point, ()>; 3]>, image::Rgb<u8>)> {
-        let (width, height) = self.img.dimensions();
-
         // Calculate delaunay triangles from points
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
         let mut members: Vec<Rc<RefCell<Member>>> = vec![];
@@ -82,34 +81,6 @@ impl<'a> Generation<'a> {
             faces.push(Face::new(Box::new(triangle), &members, index, &self.img));
         }
 
-        // Get fitness from pixels
-        let num_pixels = (width * height) as u32;
-        '_outer_fitness: for i in 0..num_pixels {
-            // find containing triangle
-            let x = i as f32 % width;
-            let y = i as f32 / width;
-            for f in &mut faces {
-                if f.contains(Point::new(x, y)) {
-                    let actual_color = self.img.get_pixel(x as u32, y as u32);
-                    f.add_fitness(actual_color);
-                    continue '_outer_fitness;
-                }
-            }
-        }
-
-        // Move face fitness to points
-        for f in &mut faces {
-            f.move_fitness();
-            // f.print_fitness();
-        }
-
-        // check whether mutations were beneficial
-        for m in &self.base {
-            if index != 0 {
-                m.borrow_mut().mark_beneficial_mutations(index);
-            }
-        }
-
         (faces, delaunay)
     }
     pub fn get_best_faces(
@@ -118,13 +89,11 @@ impl<'a> Generation<'a> {
         Vec<Face>,
         DelaunayTriangulation<Point, FloatKernel, DelaunayWalkLocate>,
     ) {
-        let (width, height) = self.img.dimensions();
-
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
         let mut points: Vec<(f32, f32)> = vec![];
         for m in &self.base {
             let point = m.borrow_mut().get_best();
-            delaunay.insert(Point::new(point.0, point.1));
+            delaunay.insert(Point::from(point));
             points.push(point);
         }
 
@@ -133,7 +102,7 @@ impl<'a> Generation<'a> {
             members.push(Rc::new(RefCell::new(Member::new(
                 MemberType::Base,
                 point,
-                (width, height),
+                self.img.dimensions(),
             ))));
         }
 
@@ -141,13 +110,59 @@ impl<'a> Generation<'a> {
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
             faces.push(Face::new(Box::new(triangle), &members, 0, &self.img));
-            // faces.push(Box::new(triangle), Face::average_color(triangle, &self.img));
         }
 
         (faces, delaunay)
     }
+    pub fn calculate_fitness(&self, faces: &mut Vec<Face>, del: &DelaunayTriangulation<Point, FloatKernel, DelaunayWalkLocate>) -> () {
+        let (width, height) = self.img.dimensions();
+
+        // Get fitness from pixels
+        let num_pixels = (width * height) as u32;
+        '_outer_fitness: for i in 0..num_pixels {
+            // find containing triangle
+            let x = i as f32 % width;
+            let y = i as f32 / width;
+            let location = del.locate(&Point::new(x, y));
+            let face_handle = match location {
+                PositionInTriangulation::InTriangle(f) => f,
+                PositionInTriangulation::OnEdge(e) => e.face(),
+                PositionInTriangulation::OnPoint(v) => {
+                    for face in faces.into_iter() {
+                        if face.has_vertex(v) {
+                            let actual_color = self.img.get_pixel(x as u32, y as u32);
+                            face.add_fitness(actual_color);
+                            continue '_outer_fitness;
+                        }
+                    }
+                    // should never be reached
+                    continue '_outer_fitness;
+                }
+                _ => {
+                    // should never be reached
+                    continue '_outer_fitness;
+                },
+            };
+            for face in faces.into_iter() {
+                if face.is_same(face_handle) {
+                    let actual_color = self.img.get_pixel(x as u32, y as u32);
+                    face.add_fitness(actual_color);
+                    continue '_outer_fitness;
+                }
+            }
+            // should never be reached
+        }
+
+        // Move face fitness to points
+        for f in faces.into_iter() {
+            f.move_fitness();
+        }
+    }
     pub fn write(&self, filename: String) -> () {
         let (faces, d) = self.get_best_faces();
+        self.write_faces(filename, faces, d)
+    }
+    pub fn write_faces(&self, filename: String, faces: Vec<Face>, d: DelaunayTriangulation<Point, FloatKernel, DelaunayWalkLocate>) -> () {
         let (width, height) = self.img.dimensions();
 
         // Rasterize image
@@ -221,7 +236,7 @@ impl<'a> Generation<'a> {
     pub fn get_best_points(&self) -> Vec<(f32, f32)> {
         let mut ret = vec![];
         for m in &self.base {
-            ret.push(m.borrow_mut().get_best());
+            ret.push(m.borrow().get_best());
         }
         ret
     }

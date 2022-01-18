@@ -16,7 +16,6 @@ pub struct Face {
     pub color: image::Rgb<u8>,
     pub fitness: f32,
     index: usize,
-    triangle: Triangle,
 }
 
 const SAMPLES: u32 = 5;
@@ -87,11 +86,7 @@ impl Face {
             color: image::Rgb([color.0 as u8, color.1 as u8, color.2 as u8]),
             fitness: 0.0,
             index,
-            triangle,
         }
-    }
-    pub fn contains(&self, p: Point) -> bool {
-        self.triangle.contains(p)
     }
     pub fn add_fitness(&mut self, color: image::Rgb<u8>) -> () {
         let face_color = self.color.0;
@@ -116,14 +111,6 @@ impl Face {
             .2
             .borrow_mut()
             .add_fitness(self.index, self.fitness);
-    }
-    pub fn print_fitness(&self) -> () {
-        println!(
-            "{:?} {:?} {:?}",
-            self.points.0.borrow().mutation(self.index).fitness,
-            self.points.1.borrow().mutation(self.index).fitness,
-            self.points.2.borrow().mutation(self.index).fitness,
-        );
     }
     pub fn is_same(&self, face_handle: FaceHandle<Point, ()>) -> bool {
         let p0 = self.points.0.borrow().values(0);

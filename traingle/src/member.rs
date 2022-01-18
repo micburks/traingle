@@ -11,7 +11,7 @@ pub struct Member {
     size: usize,
     dimensions: (f32, f32),
     pub fitness: f32,
-    pub is_beneficial: bool,
+    //pub is_beneficial: bool,
 }
 
 impl Member {
@@ -28,7 +28,7 @@ impl Member {
             size: 0,
             dimensions,
             fitness: 0.0,
-            is_beneficial: false,
+            //is_beneficial: false,
         }
     }
     pub fn mutation(&self, index: usize) -> &Member {
@@ -58,10 +58,11 @@ impl Member {
         let mut aggregate = Point::from(self.point.values());
         let mut beneficial_mutations = vec![];
         let mut highest = 0.0;
+        let base_fitness = self.fitness;
         for mutation in &self.mutations {
             match mutation.source {
                 MemberType::Mutation(delta) => {
-                    if mutation.is_beneficial {
+                    if base_fitness < mutation.fitness {
                         beneficial_mutations.push((delta, mutation.fitness));
                         if mutation.fitness > highest {
                             highest = mutation.fitness;
@@ -82,24 +83,6 @@ impl Member {
         ));
         self.size += 1;
     }
-    pub fn mark_beneficial_mutations(&mut self, index: usize) -> () {
-        match self.source {
-            // only base members have mutations
-            MemberType::Base => {
-                // base members are not mutations
-                if index == 0 {
-                    return;
-                }
-                if index > self.size {
-                    panic!("size out of bounds");
-                }
-                if self.fitness < self.mutations[index - 1].fitness {
-                    self.mutations[index - 1].is_beneficial = true;
-                }
-            }
-            _ => (),
-        }
-    }
     pub fn add_fitness(&mut self, index: usize, fitness: f32) -> () {
         if index == 0 {
             self.fitness += fitness;
@@ -113,7 +96,7 @@ impl Member {
     fn _add_fitness(&mut self, fitness: f32) -> () {
         self.fitness += fitness;
     }
-    pub fn get_best(&mut self) -> (f32, f32) {
+    pub fn get_best(&self) -> (f32, f32) {
         let mut index = 0;
         let mut highest = self.fitness;
         for (i, mutation) in (&self.mutations).into_iter().enumerate() {

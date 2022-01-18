@@ -29,7 +29,6 @@ fn get_points((w, h): (f32, f32)) -> Vec<(f32, f32)> {
     points
 }
 
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args();
     args.next();
@@ -42,8 +41,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Calculate fitness and create 0th generation
     let initial_points = get_points(img.dimensions());
     let gen = Generation::new(initial_points, &img);
-    gen.triangulate_and_calculate_fitness(0);
-    gen.write(String::from("output-0.jpg"));
+    let (faces, del) = gen.triangulate(0);
+    gen.write_faces(String::from("output-0.jpg"), faces, del);
     let mut previous = gen.base();
 
     let elapsed_time = now.elapsed();
