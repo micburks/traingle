@@ -219,9 +219,9 @@ impl Face {
     pub fn print_fitness(&self) -> () {
         println!(
             "{:?} {:?} {:?}",
-            self.points.0.borrow().mutation(self.index).fitness(),
-            self.points.1.borrow().mutation(self.index).fitness(),
-            self.points.2.borrow().mutation(self.index).fitness(),
+            self.points.0.borrow().mutation(self.index).fitness,
+            self.points.1.borrow().mutation(self.index).fitness,
+            self.points.2.borrow().mutation(self.index).fitness,
         );
     }
 }

@@ -5,13 +5,13 @@ use rand_distr::StandardNormal;
 
 #[derive(Debug)]
 pub struct Member {
-    source: MemberType,
+    pub source: MemberType,
     point: Box<Point>,
     mutations: Vec<Member>,
     size: usize,
     dimensions: (f32, f32),
-    fitness: f32,
-    is_beneficial: bool,
+    pub fitness: f32,
+    pub is_beneficial: bool,
 }
 
 impl Member {
@@ -44,9 +44,6 @@ impl Member {
     pub fn point(&self, index: usize) -> &Point {
         &self.mutation(index).point
     }
-    pub fn fitness(&self) -> f32 {
-        self.fitness
-    }
     pub fn mutate(&mut self) -> () {
         // will have to mess with normal distribution here
         let random_point = Point::new(random(), random());
@@ -76,10 +73,6 @@ impl Member {
         ));
         self.size += 1;
     }
-    fn mark_as_beneficial(&mut self) -> () {
-        self.is_beneficial = true;
-        // self.point.mark_as_beneficial();
-    }
     pub fn mark_beneficial_mutations(&mut self, index: usize) -> () {
         match self.source {
             // only base members have mutations
@@ -92,8 +85,6 @@ impl Member {
                     panic!("size out of bounds");
                 }
                 if self.fitness < self.mutations[index - 1].fitness {
-                // if self.point(0).fitness() < self.point(index).fitness() {
-                    // self.mutations[index - 1].mark_as_beneficial();
                     self.mutations[index - 1].is_beneficial = true;
                 }
             }
@@ -103,29 +94,23 @@ impl Member {
     pub fn add_fitness(&mut self, index: usize, fitness: f32) -> () {
         if index == 0 {
             self.fitness += fitness;
-            //self._add_fitness(fitness);
         } else {
             if index > self.size {
                 panic!("size out of bounds");
             }
             self.mutations[index - 1].fitness += fitness;
-            // self.mutations[index - 1]._add_fitness(fitness);
         }
     }
     fn _add_fitness(&mut self, fitness: f32) -> () {
         self.fitness += fitness;
-        // self.point.add_fitness(fitness);
     }
     pub fn get_best(&mut self) -> (f32, f32) {
         let mut index = 0;
         let mut highest = self.fitness;
-        // let mut highest = self.point(0).fitness();
         for (i, mutation) in (&self.mutations).into_iter().enumerate() {
             if mutation.fitness > highest {
-            //if mutation.point(0).fitness() > highest {
                 index = i;
                 highest = mutation.fitness;
-                // highest = mutation.point(0).fitness();
             }
         }
         self.values(index)
@@ -150,7 +135,7 @@ impl Clone for MemberType {
     }
 }
 
-const MAX_DEV: f32 = 10.0;
+const MAX_DEV: f32 = 3.0;
 
 fn random() -> f32 {
     let val: f32 = thread_rng().sample(StandardNormal);
