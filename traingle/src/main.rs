@@ -41,8 +41,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Calculate fitness and create 0th generation
     let initial_points = get_points(img.dimensions());
     let gen = Generation::new(initial_points, &img);
-    let (faces, del) = gen.triangulate(0);
-    gen.write_faces(String::from("output-0.jpg"), faces, del);
+    let pop = gen.triangulate(0);
+    gen.write_faces(String::from("output-0.jpg"), pop);
     let mut previous = gen.base();
 
     let elapsed_time = now.elapsed();
