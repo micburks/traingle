@@ -1,4 +1,4 @@
-use super::face::Face;
+use super::face::{Face, FaceFinder};
 use super::img::Img;
 use super::member::{Member, MemberType};
 use super::point::Point;
@@ -92,7 +92,7 @@ impl<'a> Generation<'a> {
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new(Box::new(triangle), &members, index, &self.img));
+            faces.push(Face::new(triangle, &members, index, &self.img));
         }
 
         let face_hash = self.get_face_map(&faces);
@@ -120,7 +120,7 @@ impl<'a> Generation<'a> {
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new(Box::new(triangle), &members, 0, &self.img));
+            faces.push(Face::new(triangle, &members, 0, &self.img));
         }
 
         let face_hash = self.get_face_map(&faces);
@@ -132,11 +132,16 @@ impl<'a> Generation<'a> {
 
         // Get fitness from pixels
         let num_pixels = (width * height) as u32;
+        let mut face_finder = FaceFinder::new(&mut pop.faces, &pop.map);
         '_outer_fitness: for i in 0..num_pixels {
             // find containing triangle
             let x = i as f32 % width;
             let y = i as f32 / width;
             let actual_color = self.img.get_pixel(x as u32, y as u32);
+            if let Some(face) = face_finder.find(x, y) {
+                face.add_fitness(actual_color);
+            }
+            /*
             let location = pop.del.locate(&Point::new(x, y));
             let face_handle = match location {
                 PositionInTriangulation::InTriangle(f) => f,
@@ -165,6 +170,7 @@ impl<'a> Generation<'a> {
             let face_index = pop.map.get(&hash).unwrap();
             pop.faces[*face_index].add_fitness(actual_color);
             continue '_outer_fitness;
+            */
             // should never be reached
         }
 
@@ -174,23 +180,26 @@ impl<'a> Generation<'a> {
         }
     }
     pub fn write(&self, filename: String) -> () {
-        let pop = self.get_best_faces();
-        self.write_faces(filename, pop);
+        let mut pop = self.get_best_faces();
+        self.write_faces(filename, &mut pop);
     }
-    pub fn write_faces(
-        &self,
-        filename: String,
-        pop: Population,
-    ) -> () {
+    pub fn write_faces(&self, filename: String, pop: &mut Population) -> () {
         let (width, height) = self.img.dimensions();
 
         // Rasterize image
         let num_pixels = (width * height) as u32;
+        let mut face_finder = FaceFinder::new(&mut pop.faces, &pop.map);
         let mut buf = vec![];
         '_outer_raster: for i in 0..num_pixels {
             // find containing triangle
             let x = i as f32 % width;
             let y = i as f32 / width;
+            let face = face_finder.find(x, y);
+            let [r, g, b] = match face {
+                Some(f) => f.color.0,
+                None => [255, 0, 255],
+            };
+            /*
             let l = pop.del.locate(&Point::new(x, y));
             let face_handle = match l {
                 PositionInTriangulation::InTriangle(f) => f,
@@ -221,6 +230,7 @@ impl<'a> Generation<'a> {
             );
             let face_index = pop.map.get(&hash).unwrap();
             let [r, g, b] = pop.faces[*face_index].color.0;
+            */
             buf.push(r as u8);
             buf.push(g as u8);
             buf.push(b as u8);

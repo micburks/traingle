@@ -4,6 +4,7 @@ use super::point::Point;
 
 use spade::delaunay::{FaceHandle, VertexHandle};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -17,18 +18,21 @@ pub struct Face {
     pub fitness: f32,
     index: usize,
     pub hash: String,
+    pub triangle: Triangle,
 }
 
 impl Face {
     pub fn new(
-        del_triangle: Box<[VertexHandle<Point, ()>; 3]>,
+        del_triangle: [VertexHandle<Point, ()>; 3],
         members: &Vec<Rc<RefCell<Member>>>,
         index: usize,
         img: &Img,
     ) -> Face {
-        let v1 = *del_triangle[0];
-        let v2 = *del_triangle[1];
-        let v3 = *del_triangle[2];
+        let triangle = Triangle::new(del_triangle);
+
+        let v1 = triangle.0;
+        let v2 = triangle.1;
+        let v3 = triangle.2;
 
         let mut m1_opt = None;
         let mut m2_opt = None;
@@ -119,6 +123,7 @@ impl Face {
             fitness: 0.0,
             index,
             hash,
+            triangle,
         }
     }
     pub fn hash(p1: Point, p2: Point, p3: Point) -> String {
@@ -200,19 +205,100 @@ impl Face {
 }
 
 #[derive(Debug)]
-struct Triangle(Point, Point, Point, Point);
+pub struct FaceFinder<'a> {
+    faces: &'a mut Vec<Face>,
+    map: &'a HashMap<String, usize>,
+    last_index: Option<i32>,
+}
+
+impl<'a> FaceFinder<'a> {
+    pub fn new(faces: &'a mut Vec<Face>, map: &'a HashMap<String, usize>) -> FaceFinder<'a> {
+        FaceFinder {
+            faces,
+            map,
+            last_index: None,
+        }
+    }
+    pub fn find(&mut self, x: f32, y: f32) -> Option<&mut Face> {
+        let start = match self.last_index {
+            Some(ind) => ind,
+            None => 0,
+        };
+        let end = self.faces.len() as i32;
+        let (mut i, mut j) = (start, start + 1);
+        while i >= 0 || j < end {
+            if i >= 0 {
+                if self.faces[i as usize].triangle.contains(Point::new(x, y)) {
+                    self.last_index = Some(i);
+                    return Option::Some(&mut self.faces[i as usize]);
+                }
+                i -= 1;
+            }
+            if j < end {
+                if self.faces[j as usize].triangle.contains(Point::new(x, y)) {
+                    self.last_index = Some(j);
+                    return Option::Some(&mut self.faces[j as usize]);
+                }
+                j += 1;
+            }
+        }
+        // println!("missed face detection {},{} - start{}/end{}", x, y, start, end);
+        None
+    }
+}
+
+#[derive(Debug)]
+pub struct Triangle(Point, Point, Point, Point, bool);
 
 impl Triangle {
-    pub fn new(p1: Point, p2: Point, p3: Point) -> Triangle {
+    pub fn new(t: [VertexHandle<Point, ()>; 3]) -> Triangle {
+        let p1 = *t[0];
+        let p2 = *t[1];
+        let p3 = *t[2];
+
         let max = Point::new(max(p1.0, p2.0, p3.0), max(p1.1, p2.1, p3.1));
-        Triangle(p1, p2, p3, max)
+
+        // does this triangle lie against the x=0 line?
+        let vertical0 = (p1.0 == 0.0 && p2.0 == 0.0)
+            || (p1.0 == 0.0 && p3.0 == 0.0)
+            || (p2.0 == 0.0 && p3.0 == 0.0);
+
+        Triangle(p1, p2, p3, max, vertical0)
     }
     pub fn contains(&self, p: Point) -> bool {
-        // short circuit algorithm
-        if p.0 > self.3 .0 && p.1 > self.3 .1 {
+        let x = p.0;
+        let y = p.1;
+
+        // if this is less than this triangle's top-left boundary box, skip
+        if x > self.3.0 && y > self.3.1 {
             return false;
         }
 
+        // x=0.0 line
+        if self.4 && x == 0.0 {
+            if y >= self.0.1 && y <= self.1.1 || // 0 <= y <= 1
+                y >= self.0.1 && y <= self.2.1 || // 0 <= y <= 2
+                y >= self.1.1 && y <= self.0.1 || // 1 <= y <= 0
+                y >= self.1.1 && y <= self.2.1 || // 1 <= y <= 2
+                y >= self.2.1 && y <= self.0.1 || // 2 <= y <= 0
+                y >= self.2.1 && y <= self.1.1 // 2 <= y <= 1
+            {
+                return true;
+            }
+        }
+
+        // exact vertex matches
+        if x == self.0 .0 && y == self.0 .1 {
+            return true;
+        }
+        if x == self.1 .0 && y == self.1 .1 {
+            return true;
+        }
+        if x == self.2 .0 && y == self.2 .1 {
+            return true;
+        }
+
+        /*
         let v0 = self.2 - self.0;
         let v1 = self.1 - self.0;
         let v2 = p - self.0;
@@ -227,9 +313,30 @@ impl Triangle {
         let u = det(Point::new(d11, d01), Point::new(d12, d02)) * inv_denom;
         let v = det(Point::new(d00, d01), Point::new(d02, d12)) * inv_denom;
         (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0)
+        */
+
+        // rewritten to be incomprehensible
+        let v0x = self.2.0 - self.0.0;
+        let v0y = self.2.1 - self.0.1;
+        let v1x = self.1.0 - self.0.0;
+        let v1y = self.1.1 - self.0.1;
+        let v2x = x - self.0.0;
+        let v2y = y - self.0.1;
+
+        let d00 = (v0x * v0x) + (v0y * v0y);
+        let d01 = (v0x * v1x) + (v0y * v1y);
+        let d02 = (v0x * v2x) + (v0y * v2y);
+        let d11 = (v1x * v1x) + (v1y * v1y);
+        let d12 = (v1x * v2x) + (v1y * v2y);
+
+        let inv_denom = 1.0 / ((d00 * d11) - (d01 * d01));
+        let u = ((d11 * d02) - (d01 * d12)) * inv_denom;
+        let v = ((d00 * d12) - (d01 * d02)) * inv_denom;
+        (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0)
     }
 }
 
+/*
 fn dot(a: Point, b: Point) -> f32 {
     (a.0 * b.0) + (a.1 * b.1)
 }
@@ -247,6 +354,7 @@ fn min(a: f32, b: f32, c: f32) -> f32 {
         c
     }
 }
+*/
 
 fn max(a: f32, b: f32, c: f32) -> f32 {
     if a >= b && a >= c {
