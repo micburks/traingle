@@ -139,12 +139,15 @@ impl Face {
     }
     pub fn add_fitness(&mut self, color: image::Rgb<u8>) -> () {
         let face_color = self.color.0;
-        let r = (face_color[0] as i32) - (color.0[0] as i32);
-        let g = (face_color[1] as i32) - (color.0[1] as i32);
-        let b = (face_color[2] as i32) - (color.0[2] as i32);
-        let fitness = (r.pow(2) + g.pow(2) + b.pow(2)) as f32;
-        if fitness != 0.0 {
-            self.fitness += 1.0 / fitness;
+        let dr = (face_color[0] as i32) - (color.0[0] as i32);
+        let dg = (face_color[1] as i32) - (color.0[1] as i32);
+        let db = (face_color[2] as i32) - (color.0[2] as i32);
+        // diff = [0, 1, 4, 9, ...]
+        let diff = (dr.pow(2) + dg.pow(2) + db.pow(2)) as f32;
+        if diff == 0.0 {
+            self.fitness += 10.0;
+        } else {
+            self.fitness += 1.0 / diff;
         }
     }
     pub fn move_fitness(&mut self) -> () {
