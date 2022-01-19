@@ -47,7 +47,7 @@ impl Member {
     }
     pub fn mutate(&mut self) -> () {
         // will have to mess with normal distribution here
-        if should_mutate() {
+        if should_mutate(1.0 / 5.0) {
             let random_point = Point::new(random(), random());
             self.mutations.push(Option::Some(Member::new(
                 MemberType::Mutation(random_point),
@@ -92,9 +92,8 @@ impl Member {
             if index > self.size {
                 panic!("size out of bounds");
             }
-            match &mut self.mutations[index - 1] {
-                Some(m) => m.fitness += fitness,
-                None => (),
+            if let Some(m) = &mut self.mutations[index - 1] {
+                m.fitness += fitness;
             }
         }
     }
@@ -136,11 +135,12 @@ impl Clone for MemberType {
 
 const MAX_DEV: f32 = 3.0;
 
-fn should_mutate() -> bool {
-    thread_rng().gen_bool(1.0 / 3.0)
+fn should_mutate(rate: f32) -> bool {
+    thread_rng().gen_bool(rate as f64)
 }
 
 fn random() -> f32 {
     let val: f32 = thread_rng().sample(StandardNormal);
-    (val - 0.5) * MAX_DEV
+    val * 10.0
+    // (val - 0.5) * MAX_DEV
 }
