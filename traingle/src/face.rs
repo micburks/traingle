@@ -34,15 +34,12 @@ impl Face {
         let mut m2_opt = None;
         let mut m3_opt = None;
         for m in members {
-            match m1_opt {
-                Some(_) => match m2_opt {
-                    Some(_) => match m3_opt {
-                        Some(_) => break,
-                        None => (),
-                    },
-                    None => (),
-                },
-                None => (),
+            if let Some(_) = m1_opt {
+                if let Some(_) = m2_opt {
+                    if let Some(_) = m3_opt {
+                        break;
+                    }
+                }
             }
             let point = *m.borrow().point(index);
             if point.0 == v1.0 && point.1 == v1.1 {
@@ -135,7 +132,10 @@ impl Face {
             }
             s.swap(small, i);
         }
-        format!("{}-{},{}-{},{}-{}", s[0].0, s[0].1, s[1].0, s[1].1, s[2].0, s[2].1)
+        format!(
+            "{}-{},{}-{},{}-{}",
+            s[0].0, s[0].1, s[1].0, s[1].1, s[2].0, s[2].1
+        )
     }
     pub fn add_fitness(&mut self, color: image::Rgb<u8>) -> () {
         let face_color = self.color.0;

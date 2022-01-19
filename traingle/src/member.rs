@@ -62,26 +62,20 @@ impl Member {
     pub fn merge_mutations_into_base(&mut self) -> () {
         let mut aggregate = Point::from(self.point.values());
         let mut beneficial_mutations = vec![];
-        let mut highest = 0.0;
+        let mut sum = 0.0;
         let base_fitness = self.fitness;
         for mutation in &self.mutations {
-            match mutation {
-                Some(m) => match m.source {
-                    MemberType::Mutation(delta) => {
-                        if base_fitness < m.fitness {
-                            beneficial_mutations.push((delta, m.fitness));
-                            if m.fitness > highest {
-                                highest = m.fitness;
-                            }
-                        }
+            if let Some(m) = mutation {
+                if let MemberType::Mutation(delta) = m.source {
+                    if base_fitness < m.fitness {
+                        beneficial_mutations.push((delta, m.fitness));
+                        sum += m.fitness;
                     }
-                    _ => (),
-                },
-                None => (),
+                }
             }
         }
         for (delta, fitness) in beneficial_mutations {
-            let percent = fitness / highest;
+            let percent = fitness / sum;
             aggregate.mutate(delta * percent, self.dimensions);
         }
         self.mutations.push(Some(Member::new(
@@ -111,14 +105,11 @@ impl Member {
         let mut index = 0;
         let mut highest = self.fitness;
         for (i, mutation) in (&self.mutations).into_iter().enumerate() {
-            match mutation {
-                Some(m) => {
-                    if m.fitness > highest {
-                        index = i;
-                        highest = m.fitness;
-                    }
+            if let Some(m) = mutation {
+                if m.fitness > highest {
+                    index = i;
+                    highest = m.fitness;
                 }
-                None => (),
             }
         }
         self.values(index)
