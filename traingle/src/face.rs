@@ -41,9 +41,18 @@ impl Face {
             if point.0 == v2.0 && point.1 == v2.1 {
                 m2_opt = Some(Rc::clone(&m));
             }
-
             if point.0 == v3.0 && point.1 == v3.1 {
                 m3_opt = Some(Rc::clone(&m));
+            }
+            match m1_opt {
+                Some(_) => match m2_opt {
+                    Some(_) => match m3_opt {
+                        Some(_) => break,
+                        None => (),
+                    },
+                    None => (),
+                },
+                None => (),
             }
         }
         let m1 = m1_opt.unwrap();
