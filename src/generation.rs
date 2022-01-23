@@ -8,7 +8,7 @@ use spade::delaunay::{
 };
 use spade::kernels::FloatKernel;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap,HashSet};
 use std::rc::Rc;
 
 pub struct Generation<'a> {
@@ -39,11 +39,14 @@ impl<'a> Generation<'a> {
         Generation {
             base: points
                 .into_iter()
-                .map(|p| {
+                .enumerate()
+                .map(|(id, p)| {
                     Rc::new(RefCell::new(Member::new(
+                        id,
                         MemberType::Base,
                         p,
                         img.dimensions(),
+                        img.points(),
                     )))
                 })
                 .collect(),
@@ -100,20 +103,47 @@ impl<'a> Generation<'a> {
         Population::new(faces, delaunay, face_hash)
     }
     pub fn get_best_faces(&self) -> Population {
-        let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
+        let mut v = vec![];
+        for pop in &self.populations {
+            for face in &pop.faces {
+                v.push(face);
+            }
+        }
+        v.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
+
         let mut points: Vec<(f32, f32)> = vec![];
-        for m in &self.base {
-            let point = m.borrow_mut().get_best();
-            delaunay.insert(Point::from(point));
-            points.push(point);
+        let mut i = 0;
+        let mut seen: HashSet<usize> = HashSet::new();
+        while i < v.len() && points.len() <= self.img.points() as usize {
+            let face = v[i];
+            let m1 = face.points.0.borrow();
+            if !seen.contains(&m1.id) {
+                points.push(m1.values(0));
+                seen.insert(m1.id);
+            }
+            let m2 = face.points.1.borrow();
+            if !seen.contains(&m2.id) {
+                points.push(m2.values(0));
+                seen.insert(m2.id);
+            }
+            let m3 = face.points.2.borrow();
+            if !seen.contains(&m3.id) {
+                points.push(m3.values(0));
+                seen.insert(m3.id);
+            }
+            i += 1;
         }
 
+        let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
         let mut members: Vec<Rc<RefCell<Member>>> = vec![];
-        for point in points {
+        for (id, point) in points.into_iter().enumerate() {
+            delaunay.insert(Point::from(point));
             members.push(Rc::new(RefCell::new(Member::new(
+                id,
                 MemberType::Base,
                 point,
                 self.img.dimensions(),
+                self.img.points(),
             ))));
         }
 
@@ -128,6 +158,8 @@ impl<'a> Generation<'a> {
         Population::new(faces, delaunay, face_hash)
     }
     fn calculate_fitness(&self, pop: &mut Population) -> () {
+        // fitness now calculated when face is created
+        /*
         let (width, height) = self.img.dimensions();
 
         // Get fitness from pixels
@@ -141,38 +173,8 @@ impl<'a> Generation<'a> {
             if let Some(face) = face_finder.find(x, y) {
                 face.add_fitness(actual_color);
             }
-            /*
-            let location = pop.del.locate(&Point::new(x, y));
-            let face_handle = match location {
-                PositionInTriangulation::InTriangle(f) => f,
-                PositionInTriangulation::OnEdge(e) => e.face(),
-                PositionInTriangulation::OnPoint(v) => {
-                    for face in &mut pop.faces {
-                        if face.has_vertex(v) {
-                            face.add_fitness(actual_color);
-                            continue '_outer_fitness;
-                        }
-                    }
-                    // should never be reached
-                    continue '_outer_fitness;
-                }
-                _ => {
-                    // should never be reached
-                    continue '_outer_fitness;
-                }
-            };
-            let [t1, t2, t3] = face_handle.as_triangle();
-            let hash = Face::hash(
-                Point::from((t1.0, t1.1)),
-                Point::from((t2.0, t2.1)),
-                Point::from((t3.0, t3.1)),
-            );
-            let face_index = pop.map.get(&hash).unwrap();
-            pop.faces[*face_index].add_fitness(actual_color);
-            continue '_outer_fitness;
-            */
-            // should never be reached
         }
+        */
 
         // Move face fitness to points
         for f in &mut pop.faces {
@@ -199,42 +201,9 @@ impl<'a> Generation<'a> {
                 Some(f) => f.color.0,
                 None => [255, 0, 255],
             };
-            /*
-            let l = pop.del.locate(&Point::new(x, y));
-            let face_handle = match l {
-                PositionInTriangulation::InTriangle(f) => f,
-                PositionInTriangulation::OnEdge(e) => e.face(),
-                PositionInTriangulation::OnPoint(v) => {
-                    for face in &pop.faces {
-                        if face.has_vertex(v) {
-                            let [r, g, b] = face.color.0;
-                            buf.push(r as u8);
-                            buf.push(g as u8);
-                            buf.push(b as u8);
-                            continue '_outer_raster;
-                        }
-                    }
-                    // should never be reached
-                    continue '_outer_raster;
-                }
-                _ => {
-                    // should never be reached
-                    continue '_outer_raster;
-                }
-            };
-            let [t1, t2, t3] = face_handle.as_triangle();
-            let hash = Face::hash(
-                Point::from((t1.0, t1.1)),
-                Point::from((t2.0, t2.1)),
-                Point::from((t3.0, t3.1)),
-            );
-            let face_index = pop.map.get(&hash).unwrap();
-            let [r, g, b] = pop.faces[*face_index].color.0;
-            */
             buf.push(r as u8);
             buf.push(g as u8);
             buf.push(b as u8);
-            // should never be reached
         }
 
         match image::save_buffer(
@@ -255,9 +224,12 @@ impl<'a> Generation<'a> {
     }
     pub fn get_best_points(&self) -> Vec<(f32, f32)> {
         let mut ret = vec![];
+        let mut sum = 0.0;
         for m in &self.base {
+            sum += m.borrow().get_best_fitness();
             ret.push(m.borrow().get_best());
         }
+        println!("average fitness {}", sum / self.base.len() as f32);
         ret
     }
     pub fn base(&self) -> Vec<(f32, f32)> {

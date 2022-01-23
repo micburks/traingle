@@ -10,19 +10,18 @@ use img::Img;
 use image::io::Reader as ImageReader;
 use std::time::Instant;
 
-const X_SEGMENTS: u32 = 10;
-const Y_SEGMENTS: u32 = 10;
-const GENERATIONS: u32 = 5;
-const MUTATIONS_PER_GENERATION: u32 = 2;
+const SEGMENTS: u32 = 35;
+const GENERATIONS: u32 = 20;
+const MUTATIONS_PER_GENERATION: u32 = 10;
 
 fn get_points((w, h): (f32, f32)) -> Vec<(f32, f32)> {
     // Create random points across image
     let mut points = vec![];
-    for i in 0..X_SEGMENTS + 1 {
-        for j in 0..Y_SEGMENTS + 1 {
+    for i in 0..SEGMENTS + 1 {
+        for j in 0..SEGMENTS + 1 {
             points.push((
-                i as f32 * (w / X_SEGMENTS as f32),
-                j as f32 * (h / Y_SEGMENTS as f32),
+                i as f32 * (w / SEGMENTS as f32),
+                j as f32 * (h / SEGMENTS as f32),
             ));
         }
     }
@@ -33,7 +32,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut args = std::env::args();
     args.next();
     let filename = args.next().unwrap();
-    let img = Img::new(ImageReader::open(filename)?.decode()?.to_rgb8());
+    let img = Img::new(
+        ImageReader::open(filename)?.decode()?.to_rgb8(),
+        SEGMENTS.pow(2) as f32,
+    );
     println!("(w, h): {:?}", img.dimensions());
 
     let now = Instant::now();
