@@ -17,7 +17,6 @@ pub struct Face {
     ),
     pub color: image::Rgb<u8>,
     pub fitness: f32,
-    pub hash: String,
     pub index: usize,
     pub triangle: Triangle,
 }
@@ -240,16 +239,17 @@ impl Face {
         m3.borrow_mut().add_fitness(index, fitness);
 
 
-        let hash = Face::hash(p1, p2, p3);
+        // let hash = Face::hash(p1, p2, p3);
         Face {
             points: (m1, m2, m3),
             color: image::Rgb([mean.0 as u8, mean.1 as u8, mean.2 as u8]),
             fitness,
             index,
-            hash,
+            // hash,
             triangle,
         }
     }
+    /*
     pub fn hash(p1: Point, p2: Point, p3: Point) -> String {
         let mut s: Vec<Point> = vec![p1, p2, p3];
         for i in 0..3 {
@@ -265,35 +265,6 @@ impl Face {
             "{}-{},{}-{},{}-{}",
             s[0].0, s[0].1, s[1].0, s[1].1, s[2].0, s[2].1
         )
-    }
-    /*
-    pub fn add_fitness(&mut self, color: image::Rgb<u8>) -> () {
-        let face_color = self.color.0;
-        let dr = (face_color[0] as i32) - (color.0[0] as i32);
-        let dg = (face_color[1] as i32) - (color.0[1] as i32);
-        let db = (face_color[2] as i32) - (color.0[2] as i32);
-        // diff = [0, 1, 4, 9, ...]
-        let diff = (dr.pow(2) + dg.pow(2) + db.pow(2)) as f32;
-        if diff == 0.0 {
-            self.fitness += 100.0;
-        } else {
-            self.fitness += 1.0 / diff;
-        }
-    }
-    */
-    pub fn move_fitness(&mut self) -> () {
-        self.points
-            .0
-            .borrow_mut()
-            .add_fitness(self.index, self.fitness);
-        self.points
-            .1
-            .borrow_mut()
-            .add_fitness(self.index, self.fitness);
-        self.points
-            .2
-            .borrow_mut()
-            .add_fitness(self.index, self.fitness);
     }
     fn rasterize<'a>(
         p0: Point,
@@ -465,25 +436,26 @@ impl Face {
 
         pixels
     }
+    */
 }
 
+/*
 enum Pixel {
     Block(u32, u32),
     Line(Vec<(u32, u32)>, i32),
 }
+*/
 
 #[derive(Debug)]
 pub struct FaceFinder<'a> {
     faces: &'a mut Vec<Face>,
-    map: &'a HashMap<String, usize>,
     last_index: Option<i32>,
 }
 
 impl<'a> FaceFinder<'a> {
-    pub fn new(faces: &'a mut Vec<Face>, map: &'a HashMap<String, usize>) -> FaceFinder<'a> {
+    pub fn new(faces: &'a mut Vec<Face>) -> FaceFinder<'a> {
         FaceFinder {
             faces,
-            map,
             last_index: None,
         }
     }

@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let gen = Generation::new(initial_points, &img);
     let mut pop = gen.triangulate(0);
     let time_to_generate = now.elapsed().as_secs();
-    gen.write_faces(String::from("output-0.jpg"), &mut pop);
+    gen.write_faces(String::from("output-0.jpg"), &mut pop.faces);
     println!(
         "Generation 0, generated in {}s, written in {}s.",
         time_to_generate,
@@ -62,14 +62,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // - Mutate each base member equal number of times
         // - Calculate fitness of each new member
         // - If fitness is higher than base member, its marked as beneficial
-        gen.mutate(MUTATIONS_PER_GENERATION);
         // - Base members are copied again, mutating them with all beneficial mutations
         // - Calculate fitness of new mutated base members
-        gen.aggregate_beneficial_mutations();
+        gen.mutate(MUTATIONS_PER_GENERATION);
         // - Sort all members by fitness
-        previous = gen.get_best_points();
+        let mut pop = gen.get_best_faces();
+        previous = pop.points;
         let time_to_generate = now.elapsed().as_secs();
-        gen.write(format!("output-{}.jpg", i + 1));
+        gen.write_faces(format!("output-{}.jpg", i + 1), &mut pop.faces);
         println!(
             "Generation {}, generated in {}s, written in {}s.",
             i + 1,

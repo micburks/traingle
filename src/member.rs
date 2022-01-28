@@ -39,6 +39,19 @@ impl Member {
             fitness: 0.0,
         }
     }
+    pub fn fitness(&self, index: usize) -> f32 {
+        if index == 0 {
+            return self.fitness;
+        } else {
+            if index > self.size {
+                panic!("size out of bounds");
+            }
+            match &self.mutations[index - 1] {
+                Some(m) => m.fitness,
+                None => 0.0,
+            }
+        }
+    }
     pub fn mutation(&self, index: usize) -> &Option<Member> {
         if index == 0 {
             return &None;
@@ -110,9 +123,6 @@ impl Member {
                 m.fitness += fitness;
             }
         }
-    }
-    fn _add_fitness(&mut self, fitness: f32) -> () {
-        self.fitness += fitness;
     }
     pub fn get_best_fitness(&self) -> f32 {
         let mut highest = self.fitness;
