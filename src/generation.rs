@@ -61,8 +61,7 @@ impl<'a> Generation<'a> {
                 point.borrow_mut().mutate();
             }
             self.mutations += 1;
-            let mut pop = self.triangulate(self.mutations);
-            self.calculate_fitness(&mut pop);
+            let pop = self.triangulate(self.mutations);
             self.populations.push(pop);
         }
     }
@@ -73,15 +72,17 @@ impl<'a> Generation<'a> {
         }
         map
     }
-    pub fn aggregate_beneficial_mutations(&mut self) -> () {
+
+        // aggregate best mutations
         for base_member in &self.base {
             base_member.borrow_mut().merge_mutations_into_base();
         }
         self.mutations += 1;
-        let mut pop = self.triangulate(self.mutations);
-        self.calculate_fitness(&mut pop);
+        let pop = self.triangulate(self.mutations);
         self.populations.push(pop);
     }
+    // Create triangles from a set of points
+    // Calculate fitness of each triangle and aggregate in each member
     pub fn triangulate(&self, index: usize) -> Population {
         // Calculate delaunay triangles from points
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();

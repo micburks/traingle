@@ -2,7 +2,7 @@ use super::img::Img;
 use super::member::Member;
 use super::point::Point;
 
-use spade::delaunay::{FaceHandle, VertexHandle};
+use spade::delaunay::VertexHandle;
 use std::cell::RefCell;
 use std::cmp;
 use std::collections::HashMap;
@@ -17,8 +17,8 @@ pub struct Face {
     ),
     pub color: image::Rgb<u8>,
     pub fitness: f32,
-    index: usize,
     pub hash: String,
+    pub index: usize,
     pub triangle: Triangle,
 }
 
@@ -174,12 +174,15 @@ impl Face {
         let top_left = Point::new(min(p1.0, p2.0, p3.0), min(p1.1, p2.1, p3.1));
         let bottom_right = Point::new(max(p1.0, p2.0, p3.0), max(p1.1, p2.1, p3.1));
 
-        let difference = 0.0;
+        // let difference = 0.0;
         let mut color_sum: (u32, u32, u32) = (0, 0, 0);
         let mut mean_color: (u32, u32, u32) = (0, 0, 0);
         let mut additions = vec![];
         let mut total_area = 0;
-        let mut total_sq = 0;
+        // let mut total_sq = 0;
+        let mut count = 0.0;
+        let mut mean = (0.0, 0.0, 0.0);
+        let mut m_2 = (0.0, 0.0, 0.0);
         for x in (top_left.0 as usize)..(bottom_right.0 as usize) {
             for y in (top_left.1 as usize)..(bottom_right.1 as usize) {
                 if triangle.contains(Point::new(x as f32, y as f32)) {
@@ -189,6 +192,23 @@ impl Face {
                     color_sum.1 += add.0[1] as u32;
                     color_sum.2 += add.0[2] as u32;
                     additions.push(add);
+
+                    // new
+
+                    count += 1.0;
+                    let a = (add.0[0] as f32, add.0[1] as f32, add.0[2] as f32);
+                    let delta = (a.0 - mean.0, a.1 - mean.1, a.2 - mean.2);
+                    mean = (
+                        mean.0 + (delta.0 / count),
+                        mean.1 + (delta.1 / count),
+                        mean.2 + (delta.2 / count),
+                    );
+                    let delta2 = (a.0 - mean.0, a.1 - mean.1, a.2 - mean.2);
+                    m_2 = (
+                        m_2.0 + (delta.0 * delta2.0),
+                        m_2.1 + (delta.1 * delta2.1),
+                        m_2.2 + (delta.2 * delta2.2),
+                    );
                 }
             }
         }
@@ -208,12 +228,22 @@ impl Face {
             let db = add.0[2] as i32 - mean_color.2 as i32;
             c += dr * dr + dg * dg + db * db;
         }
-        let fitness = if c != 0 { 1.0 / c as f32 } else { 0.0 };
+        // let fitness = if c != 0 { 1.0 / c as f32 } else { 2.0 };
+        let fitness = if count == 0.0 {
+            0.0
+        } else {
+            (m_2.0 + m_2.1 + m_2.2) / count
+        };
+
+        m1.borrow_mut().add_fitness(index, fitness);
+        m2.borrow_mut().add_fitness(index, fitness);
+        m3.borrow_mut().add_fitness(index, fitness);
+
 
         let hash = Face::hash(p1, p2, p3);
         Face {
             points: (m1, m2, m3),
-            color: image::Rgb([mean_color.0 as u8, mean_color.1 as u8, mean_color.2 as u8]),
+            color: image::Rgb([mean.0 as u8, mean.1 as u8, mean.2 as u8]),
             fitness,
             index,
             hash,
@@ -480,16 +510,7 @@ impl<'a> FaceFinder<'a> {
                 j += 1;
             }
         }
-        // try to use a nearby pixel
-        if x == 0.0 && y == 0.0 {
-            return None;
-        } else if x == 0.0 {
-            return self.find(x, y - 1.0);
-        } else if y == 0.0 {
-            return self.find(x - 1.0, y);
-        } else {
-            return self.find(x - 1.0, y - 1.0);
-        }
+        return None;
     }
 }
 
@@ -527,12 +548,12 @@ impl Triangle {
 
         // x=0.0 line
         if self.4 .0 && x == 0.0 {
-            if y >= self.0.1 && y <= self.1.1 || // 0 <= y <= 1
-                y >= self.0.1 && y <= self.2.1 || // 0 <= y <= 2
-                y >= self.1.1 && y <= self.0.1 || // 1 <= y <= 0
-                y >= self.1.1 && y <= self.2.1 || // 1 <= y <= 2
-                y >= self.2.1 && y <= self.0.1 || // 2 <= y <= 0
-                y >= self.2.1 && y <= self.1.1
+            if (y >= self.0.1 && y <= self.1.1) || // 0 <= y <= 1
+                (y >= self.0.1 && y <= self.2.1) || // 0 <= y <= 2
+                (y >= self.1.1 && y <= self.0.1) || // 1 <= y <= 0
+                (y >= self.1.1 && y <= self.2.1) || // 1 <= y <= 2
+                (y >= self.2.1 && y <= self.0.1) || // 2 <= y <= 0
+                (y >= self.2.1 && y <= self.1.1)
             // 2 <= y <= 1
             {
                 return true;
@@ -541,12 +562,12 @@ impl Triangle {
 
         // x=0.0 line
         if self.4 .1 && y == 0.0 {
-            if x >= self.0.0 && x <= self.1.0 || // 0 <= x <= 1
-                x >= self.0.0 && x <= self.2.0 || // 0 <= x <= 2
-                x >= self.1.0 && x <= self.0.0 || // 1 <= x <= 0
-                x >= self.1.0 && x <= self.2.0 || // 1 <= x <= 2
-                x >= self.2.0 && x <= self.0.0 || // 2 <= x <= 0
-                x >= self.2.0 && x <= self.1.0
+            if (x >= self.0.0 && x <= self.1.0) || // 0 <= x <= 1
+                (x >= self.0.0 && x <= self.2.0) || // 0 <= x <= 2
+                (x >= self.1.0 && x <= self.0.0) || // 1 <= x <= 0
+                (x >= self.1.0 && x <= self.2.0) || // 1 <= x <= 2
+                (x >= self.2.0 && x <= self.0.0) || // 2 <= x <= 0
+                (x >= self.2.0 && x <= self.1.0)
             // 2 <= x <= 1
             {
                 return true;
