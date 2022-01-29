@@ -2,13 +2,15 @@ use super::point::Point;
 
 use rand::prelude::*;
 use rand_distr::StandardNormal;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct Member {
     pub id: usize,
     pub source: MemberType,
-    point: Box<Point>,
-    mutations: Vec<Option<Member>>,
+    pub point: Box<Point>,
+    mutations: Vec<Rc<RefCell<Member>>>,
     size: usize,
     dimensions: (f32, f32),
     n_points: f32,
@@ -39,63 +41,30 @@ impl Member {
             fitness: 0.0,
         }
     }
-    pub fn fitness(&self, index: usize) -> f32 {
-        if index == 0 {
-            return self.fitness;
-        } else {
-            if index > self.size {
-                panic!("size out of bounds");
-            }
-            match &self.mutations[index - 1] {
-                Some(m) => m.fitness,
-                None => 0.0,
-            }
-        }
-    }
-    pub fn mutation(&self, index: usize) -> &Option<Member> {
-        if index == 0 {
-            return &None;
-        } else {
-            if index > self.size {
-                panic!("size out of bounds");
-            }
-            return &self.mutations[index - 1];
-        }
-    }
-    pub fn point(&self, index: usize) -> &Point {
-        match self.mutation(index) {
-            Some(m) => &m.point,
-            None => &self.point,
-        }
-    }
-    pub fn mutate(&mut self) -> () {
-        // will have to mess with normal distribution here
-        if should_mutate(1.0 / 10.0) {
-            let random_point = Point::new(random(), random());
-            self.mutations.push(Option::Some(Member::new(
-                self.id,
-                MemberType::Mutation(random_point),
-                self.point.values(),
-                self.dimensions,
-                self.n_points,
-            )));
-        } else {
-            self.mutations.push(Option::None);
-        }
+    pub fn mutate(&mut self) -> Rc<RefCell<Member>> {
         self.size += 1;
+        let random_point = Point::new(random(), random());
+        let mutation = Rc::new(RefCell::new(Member::new(
+            self.id,
+            MemberType::Mutation(random_point),
+            self.point.values(),
+            self.dimensions,
+            self.n_points,
+        )));
+        self.mutations.push(Rc::clone(&mutation));
+        mutation
     }
-    pub fn merge_mutations_into_base(&mut self) -> () {
+    pub fn merge_mutations_into_base(&mut self) -> Rc<RefCell<Member>> {
         let mut aggregate = Point::from(self.point.values());
         let mut beneficial_mutations = vec![];
         let mut sum = 0.0;
         let base_fitness = self.fitness;
-        for mutation in &self.mutations {
-            if let Some(m) = mutation {
-                if let MemberType::Mutation(delta) = m.source {
-                    if base_fitness < m.fitness {
-                        beneficial_mutations.push((delta, m.fitness));
-                        sum += m.fitness;
-                    }
+        for m in &self.mutations {
+            let m = m.borrow();
+            if let MemberType::Mutation(delta) = m.source {
+                if base_fitness < m.fitness {
+                    beneficial_mutations.push((delta, m.fitness));
+                    sum += m.fitness;
                 }
             }
         }
@@ -103,56 +72,19 @@ impl Member {
             let percent = fitness / sum;
             aggregate.mutate(delta * percent, self.dimensions);
         }
-        self.mutations.push(Some(Member::new(
+        let mutation = Rc::new(RefCell::new(Member::new(
             self.id,
             MemberType::Base,
             aggregate.values(),
             self.dimensions,
             self.n_points,
         )));
+        self.mutations.push(Rc::clone(&mutation));
         self.size += 1;
+        mutation
     }
-    pub fn add_fitness(&mut self, index: usize, fitness: f32) -> () {
-        if index == 0 {
-            self.fitness += fitness;
-        } else {
-            if index > self.size {
-                panic!("size out of bounds");
-            }
-            if let Some(m) = &mut self.mutations[index - 1] {
-                m.fitness += fitness;
-            }
-        }
-    }
-    pub fn get_best_fitness(&self) -> f32 {
-        let mut highest = self.fitness;
-        for mutation in (&self.mutations).into_iter() {
-            if let Some(m) = mutation {
-                if m.fitness > highest {
-                    highest = m.fitness;
-                }
-            }
-        }
-        highest
-    }
-    pub fn get_best(&self) -> (f32, f32) {
-        let mut index = 0;
-        let mut highest = self.fitness;
-        //let mut v = vec![highest];
-        for (i, mutation) in (&self.mutations).into_iter().enumerate() {
-            if let Some(m) = mutation {
-                if m.fitness > highest {
-                    index = i;
-                    highest = m.fitness;
-                    //v.push(m.fitness);
-                }
-            }
-        }
-        //println!("{} {} from {:?}", highest, index, v);
-        self.values(index)
-    }
-    pub fn values(&self, index: usize) -> (f32, f32) {
-        self.point(index).values()
+    pub fn add_fitness(&mut self, fitness: f32) -> () {
+        self.fitness += fitness;
     }
 }
 
@@ -171,11 +103,13 @@ impl Clone for MemberType {
     }
 }
 
+/*
 const MAX_DEV: f32 = 3.0;
 
 fn should_mutate(rate: f32) -> bool {
     thread_rng().gen_bool(rate as f64)
 }
+*/
 
 fn random() -> f32 {
     let val: f32 = thread_rng().sample(StandardNormal);

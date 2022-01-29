@@ -39,19 +39,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("(w, h): {:?}", img.dimensions());
 
     let now = Instant::now();
+    let mut previous;
 
     // Calculate fitness and create 0th generation
     let initial_points = get_points(img.dimensions());
+
     let gen = Generation::new(initial_points, &img);
-    let mut pop = gen.triangulate(0);
+    let mut pop = gen.get_best_population();
+    previous = pop.points;
     let time_to_generate = now.elapsed().as_secs();
+
     gen.write_faces(String::from("output-0.jpg"), &mut pop.faces);
     println!(
         "Generation 0, generated in {}s, written in {}s.",
         time_to_generate,
         now.elapsed().as_secs() - time_to_generate,
     );
-    let mut previous = gen.base();
 
     // Generation loop:
     for i in 0..GENERATIONS {
@@ -65,10 +68,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // - Base members are copied again, mutating them with all beneficial mutations
         // - Calculate fitness of new mutated base members
         gen.mutate(MUTATIONS_PER_GENERATION);
+
         // - Sort all members by fitness
-        let mut pop = gen.get_best_faces();
+        let mut pop = gen.get_best_population();
         previous = pop.points;
         let time_to_generate = now.elapsed().as_secs();
+
         gen.write_faces(format!("output-{}.jpg", i + 1), &mut pop.faces);
         println!(
             "Generation {}, generated in {}s, written in {}s.",

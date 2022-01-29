@@ -3,13 +3,11 @@ use super::img::Img;
 use super::member::{Member, MemberType};
 use super::point::Point;
 
-use spade::delaunay::{
-    DelaunayTriangulation, DelaunayWalkLocate, FloatDelaunayTriangulation
-};
-// use spade::kernels::FloatKernel;
+use spade::delaunay::FloatDelaunayTriangulation;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
+//use spade::delaunay::{DelaunayTriangulation, DelaunayWalkLocate, FloatDelaunayTriangulation};
 
 pub struct Generation<'a> {
     base: Vec<Rc<RefCell<Member>>>,
@@ -36,70 +34,74 @@ impl Population {
 
 impl<'a> Generation<'a> {
     pub fn new(points: Vec<(f32, f32)>, img: &'a Img) -> Generation<'a> {
-        Generation {
-            base: points
-                .into_iter()
-                .enumerate()
-                .map(|(id, p)| {
-                    Rc::new(RefCell::new(Member::new(
-                        id,
-                        MemberType::Base,
-                        p,
-                        img.dimensions(),
-                        img.points(),
-                    )))
-                })
-                .collect(),
+        let base = points
+            .into_iter()
+            .enumerate()
+            .map(|(id, p)| {
+                Rc::new(RefCell::new(Member::new(
+                    id,
+                    MemberType::Base,
+                    p,
+                    img.dimensions(),
+                    img.points(),
+                )))
+            })
+            .collect();
+
+        let mut gen = Generation {
+            base,
             img,
             mutations: 0,
             populations: vec![],
-        }
+        };
+
+        let pop = Generation::triangulate(&gen, &gen.base);
+        gen.populations.push(pop);
+        gen
     }
     pub fn mutate(&mut self, n: u32) -> () {
         for _i in 0..n {
+            let mut members = vec![];
             for point in &mut self.base {
-                point.borrow_mut().mutate();
+                members.push(point.borrow_mut().mutate());
             }
-            self.mutations += 1;
-            let pop = self.triangulate(self.mutations);
+            let pop = Generation::triangulate(&self, &members);
             self.populations.push(pop);
         }
 
         // aggregate best mutations
+        let mut members = vec![];
         for base_member in &self.base {
-            base_member.borrow_mut().merge_mutations_into_base();
+            members.push(base_member.borrow_mut().merge_mutations_into_base());
         }
-        self.mutations += 1;
-        let pop = self.triangulate(self.mutations);
+        let pop = Generation::triangulate(&self, &members);
         self.populations.push(pop);
     }
     // Create triangles from a set of points
     // Calculate fitness of each triangle and aggregate in each member
-    pub fn triangulate(&self, index: usize) -> Population {
+    fn triangulate(generation: &Generation, members: &Vec<Rc<RefCell<Member>>>) -> Population {
         // Calculate delaunay triangles from points
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
-        let mut members: Vec<Rc<RefCell<Member>>> = vec![];
         let mut points = vec![];
-        for m in &self.base {
-            let point = *m.borrow().point(index);
-            delaunay.insert(point);
-            members.push(Rc::clone(m));
+        for m in members {
+            let point = &m.borrow().point;
+            delaunay.insert(**point);
             points.push(point.values());
         }
 
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new(triangle, &members, index, &self.img));
+            faces.push(Face::new(triangle, members, &generation.img));
         }
 
         Population::new(faces, points)
     }
-    pub fn get_best_faces(&self) -> Population {
+    pub fn get_best_population(&self) -> Population {
         let points = self.get_best_points();
 
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
-        let mut members: Vec<Rc<RefCell<Member>>> = vec![];
+        let mut members = vec![];
         for (id, point) in points.clone().into_iter().enumerate() {
             delaunay.insert(Point::from(point));
             members.push(Rc::new(RefCell::new(Member::new(
@@ -114,10 +116,49 @@ impl<'a> Generation<'a> {
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new(triangle, &members, 0, &self.img));
+            faces.push(Face::new(triangle, &members, &self.img));
         }
 
         Population::new(faces, points)
+    }
+    fn get_best_points(&self) -> Vec<(f32, f32)> {
+        let mut v = vec![];
+        for pop in &self.populations {
+            for face in &pop.faces {
+                v.push(face);
+            }
+        }
+        v.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
+
+        let mut points: Vec<(f32, f32)> = vec![];
+        let mut i = 0;
+        let mut seen: HashSet<usize> = HashSet::new();
+        let mut sum = 0.0;
+        while i < v.len() && points.len() < self.img.points() as usize {
+            let face = v[i];
+            let m1 = face.points.0.borrow();
+            if !seen.contains(&m1.id) {
+                points.push(m1.point.values());
+                seen.insert(m1.id);
+                sum += m1.fitness;
+            }
+            let m2 = face.points.1.borrow();
+            if !seen.contains(&m2.id) {
+                points.push(m2.point.values());
+                seen.insert(m2.id);
+                sum += m2.fitness;
+            }
+            let m3 = face.points.2.borrow();
+            if !seen.contains(&m3.id) {
+                points.push(m3.point.values());
+                seen.insert(m3.id);
+                sum += m3.fitness
+            }
+            i += 1;
+        }
+
+        println!("average fitness {}", sum / points.len() as f32);
+        points
     }
     pub fn write_faces(&self, filename: String, faces: &mut Vec<Face>) -> () {
         let (width, height) = self.img.dimensions();
@@ -146,7 +187,7 @@ impl<'a> Generation<'a> {
                     };
                     match found {
                         Some(f) => f.color.0,
-                        None => [255, 0, 255],
+                        None => self.img.get_pixel(x as u32, y as u32).0,
                     }
                 }
             };
@@ -170,51 +211,5 @@ impl<'a> Generation<'a> {
             ),
             Err(e) => println!("error {}", e),
         }
-    }
-    pub fn get_best_points(&self) -> Vec<(f32, f32)> {
-        let mut v = vec![];
-        for pop in &self.populations {
-            for face in &pop.faces {
-                v.push(face);
-            }
-        }
-        v.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
-
-        let mut points: Vec<(f32, f32)> = vec![];
-        let mut i = 0;
-        let mut seen: HashSet<usize> = HashSet::new();
-        let mut sum = 0.0;
-        while i < v.len() && points.len() < self.img.points() as usize {
-            let face = v[i];
-            let m1 = face.points.0.borrow();
-            if !seen.contains(&m1.id) {
-                points.push(m1.values(face.index));
-                seen.insert(m1.id);
-                sum += m1.fitness(face.index);
-            }
-            let m2 = face.points.1.borrow();
-            if !seen.contains(&m2.id) {
-                points.push(m2.values(face.index));
-                seen.insert(m2.id);
-                sum += m2.fitness(face.index);
-            }
-            let m3 = face.points.2.borrow();
-            if !seen.contains(&m3.id) {
-                points.push(m3.values(face.index));
-                seen.insert(m3.id);
-                sum += m3.fitness(face.index);
-            }
-            i += 1;
-        }
-
-        println!("average fitness {}", sum / points.len() as f32);
-        points
-    }
-    pub fn base(&self) -> Vec<(f32, f32)> {
-        let mut ret = vec![];
-        for m in &self.base {
-            ret.push(m.borrow().values(0));
-        }
-        ret
     }
 }
