@@ -17,11 +17,11 @@ const MUTATIONS_PER_GENERATION: u32 = 10;
 fn get_points((w, h): (f32, f32)) -> Vec<(f32, f32)> {
     // Create random points across image
     let mut points = vec![];
-    for i in 0..SEGMENTS + 1 {
-        for j in 0..SEGMENTS + 1 {
+    for i in 0..SEGMENTS {
+        for j in 0..SEGMENTS {
             points.push((
-                i as f32 * (w / SEGMENTS as f32),
-                j as f32 * (h / SEGMENTS as f32),
+                i as f32 * (w / (SEGMENTS - 1) as f32),
+                j as f32 * (h / (SEGMENTS - 1) as f32),
             ));
         }
     }

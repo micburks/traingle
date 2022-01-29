@@ -133,7 +133,7 @@ impl Face {
 #[derive(Debug)]
 pub struct FaceFinder<'a> {
     faces: &'a mut Vec<Face>,
-    last_index: Option<i32>,
+    last_index: i32,
 }
 
 const SIZE_THRESHOLD: f32 = 0.001;
@@ -142,21 +142,18 @@ impl<'a> FaceFinder<'a> {
     pub fn new(faces: &'a mut Vec<Face>) -> FaceFinder<'a> {
         FaceFinder {
             faces,
-            last_index: None,
+            last_index: 0,
         }
     }
     pub fn find(&mut self, x: f32, y: f32) -> Option<&mut Face> {
-        let start = match self.last_index {
-            Some(ind) => ind,
-            None => 0,
-        };
+        let start = self.last_index;
         let end = self.faces.len() as i32;
         let point = Point::new(x, y);
         let (mut i, mut j) = (start, start + 1);
         while i >= 0 || j < end {
             if i >= 0 {
                 if self.faces[i as usize].triangle.contains(point) {
-                    self.last_index = Some(i as i32);
+                    self.last_index = i as i32;
                     let i = i as usize;
                     // if self.faces[i].triangle.area() < SIZE_THRESHOLD {
                     return Option::Some(&mut self.faces[i]);
@@ -171,7 +168,7 @@ impl<'a> FaceFinder<'a> {
             }
             if j < end {
                 if self.faces[j as usize].triangle.contains(point) {
-                    self.last_index = Some(j as i32);
+                    self.last_index = j as i32;
                     let j = j as usize;
                     // if self.faces[j].triangle.area() < SIZE_THRESHOLD {
                     return Option::Some(&mut self.faces[j]);

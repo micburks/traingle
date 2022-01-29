@@ -122,20 +122,22 @@ impl<'a> Generation<'a> {
         Population::new(faces, points)
     }
     fn get_best_points(&self) -> Vec<(f32, f32)> {
-        let mut v = vec![];
+        let mut sorted_faces = vec![];
         for pop in &self.populations {
             for face in &pop.faces {
-                v.push(face);
+                sorted_faces.push(face);
             }
         }
-        v.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
+        sorted_faces.sort_by(|a, b| b.fitness.partial_cmp(&a.fitness).unwrap());
 
         let mut points: Vec<(f32, f32)> = vec![];
-        let mut i = 0;
         let mut seen: HashSet<usize> = HashSet::new();
         let mut sum = 0.0;
-        while i < v.len() && points.len() < self.img.points() as usize {
-            let face = v[i];
+        for i in 0..sorted_faces.len() {
+            if points.len() >= self.img.points() as usize {
+                break;
+            }
+            let face = sorted_faces[i];
             let m1 = face.points.0.borrow();
             if !seen.contains(&m1.id) {
                 points.push(m1.point.values());
@@ -154,9 +156,7 @@ impl<'a> Generation<'a> {
                 seen.insert(m3.id);
                 sum += m3.fitness
             }
-            i += 1;
         }
-
         println!("average fitness {}", sum / points.len() as f32);
         points
     }
@@ -187,7 +187,7 @@ impl<'a> Generation<'a> {
                     };
                     match found {
                         Some(f) => f.color.0,
-                        None => self.img.get_pixel(x as u32, y as u32).0,
+                        None => [0, 255, 255],
                     }
                 }
             };
