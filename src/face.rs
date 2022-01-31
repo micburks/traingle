@@ -1,10 +1,12 @@
-use super::img::Img;
+use super::generation::Generation;
 use super::member::Member;
 use super::point::Point;
 
 use spade::delaunay::VertexHandle;
 use std::cell::RefCell;
 use std::rc::Rc;
+
+const SIZE_THRESHOLD: f32 = 0.001;
 
 #[derive(Debug)]
 pub struct Face {
@@ -22,7 +24,7 @@ impl Face {
     pub fn new(
         del_triangle: [VertexHandle<Point, ()>; 3],
         members: &Vec<Rc<RefCell<Member>>>,
-        img: &Img,
+        gen: &mut Generation,
     ) -> Face {
         let triangle = Triangle::new(del_triangle);
 
@@ -82,40 +84,85 @@ impl Face {
         let p2 = *m2.borrow().point;
         let p3 = *m3.borrow().point;
 
-        // find color
-        let top_left = Point::new(min(p1.0, p2.0, p3.0), min(p1.1, p2.1, p3.1));
-        let bottom_right = Point::new(max(p1.0, p2.0, p3.0), max(p1.1, p2.1, p3.1));
+        let img = gen.img;
 
-        let mut count = 0.0;
-        let mut mean = (0.0, 0.0, 0.0);
-        let mut m_2 = (0.0, 0.0, 0.0);
-        for x in (top_left.0 as usize)..(bottom_right.0 as usize) {
-            for y in (top_left.1 as usize)..(bottom_right.1 as usize) {
-                if triangle.contains(Point::new(x as f32, y as f32)) {
-                    let p = img.get_pixel(x as u32, y as u32);
-                    let pixel = (p.0[0] as f32, p.0[1] as f32, p.0[2] as f32);
+        let calc = |p1: Point, p2: Point, p3: Point| -> (f32, image::Rgb<u8>) {
+            // find color
+            let top_left = Point::new(min(p1.0, p2.0, p3.0), min(p1.1, p2.1, p3.1));
+            let bottom_right = Point::new(max(p1.0, p2.0, p3.0), max(p1.1, p2.1, p3.1));
 
-                    count += 1.0;
-                    let delta = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
-                    mean = (
-                        mean.0 + (delta.0 / count),
-                        mean.1 + (delta.1 / count),
-                        mean.2 + (delta.2 / count),
-                    );
-                    let delta2 = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
-                    m_2 = (
-                        m_2.0 + (delta.0 * delta2.0),
-                        m_2.1 + (delta.1 * delta2.1),
-                        m_2.2 + (delta.2 * delta2.2),
-                    );
+            let mut count = 0.0;
+            let mut mean = (0.0, 0.0, 0.0);
+            let mut m_2 = (0.0, 0.0, 0.0);
+            let mut pixels = vec![];
+            for x in (top_left.0 as usize)..(bottom_right.0 as usize) {
+                for y in (top_left.1 as usize)..(bottom_right.1 as usize) {
+                    if triangle.contains(Point::new(x as f32, y as f32)) {
+                        let p = img.get_pixel(x as u32, y as u32);
+                        let pixel = (p.0[0] as f32, p.0[1] as f32, p.0[2] as f32);
+                        pixels.push(pixel);
+
+                        count += 1.0;
+                        let delta = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
+                        mean = (
+                            mean.0 + (delta.0 / count),
+                            mean.1 + (delta.1 / count),
+                            mean.2 + (delta.2 / count),
+                        );
+                        let delta2 = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
+                        m_2 = (
+                            m_2.0 + (delta.0 * delta2.0),
+                            m_2.1 + (delta.1 * delta2.1),
+                            m_2.2 + (delta.2 * delta2.2),
+                        );
+                    }
                 }
             }
-        }
-        let fitness = if count == 0.0 {
-            0.0
-        } else {
-            (m_2.0 + m_2.1 + m_2.2) / count
+
+            let mut pixels_with_distance = vec![];
+            for pixel in pixels {
+                let distance = (mean.0 - pixel.0).powf(2.0)
+                    + (mean.1 - pixel.1).powf(2.0)
+                    + (mean.2 - pixel.2).powf(2.0);
+                pixels_with_distance.push((pixel, distance));
+            }
+
+            pixels_with_distance.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+            let mut count = 0.0;
+            let mut mean = (0.0, 0.0, 0.0);
+            let mut m_2 = (0.0, 0.0, 0.0);
+            let end = (pixels_with_distance.len() as f32 * 0.9) as usize;
+            for i in 0..end {
+                let pixel = pixels_with_distance[i].0;
+                count += 1.0;
+                let delta = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
+                mean = (
+                    mean.0 + (delta.0 / count),
+                    mean.1 + (delta.1 / count),
+                    mean.2 + (delta.2 / count),
+                );
+                let delta2 = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
+                m_2 = (
+                    m_2.0 + (delta.0 * delta2.0),
+                    m_2.1 + (delta.1 * delta2.1),
+                    m_2.2 + (delta.2 * delta2.2),
+                );
+            }
+
+            let fitness = if count == 0.0 {
+                0.0
+            } else {
+                (m_2.0 + m_2.1 + m_2.2) / count
+                // ((m_2.0 + m_2.1 + m_2.2) / count) * (triangle.area() / 100.0)
+            };
+
+            let color = image::Rgb([mean.0 as u8, mean.1 as u8, mean.2 as u8]);
+
+            (fitness, color)
         };
+
+        let (fitness, color) = gen.cache.insert(p1, p2, p3, calc);
 
         m1.borrow_mut().add_fitness(fitness);
         m2.borrow_mut().add_fitness(fitness);
@@ -123,7 +170,7 @@ impl Face {
 
         Face {
             points: (m1, m2, m3),
-            color: image::Rgb([mean.0 as u8, mean.1 as u8, mean.2 as u8]),
+            color,
             fitness,
             triangle,
         }
@@ -135,8 +182,6 @@ pub struct FaceFinder<'a> {
     faces: &'a mut Vec<Face>,
     last_index: i32,
 }
-
-const SIZE_THRESHOLD: f32 = 0.001;
 
 impl<'a> FaceFinder<'a> {
     pub fn new(faces: &'a mut Vec<Face>) -> FaceFinder<'a> {

@@ -1,3 +1,4 @@
+use super::cache::Cache;
 use super::face::{Face, FaceFinder};
 use super::img::Img;
 use super::member::{Member, MemberType};
@@ -11,9 +12,10 @@ use std::rc::Rc;
 
 pub struct Generation<'a> {
     base: Vec<Rc<RefCell<Member>>>,
-    img: &'a Img,
+    pub img: &'a Img,
     mutations: usize,
     populations: Vec<Population>,
+    pub cache: &'a mut Cache,
 }
 
 pub struct Population {
@@ -33,8 +35,8 @@ impl Population {
 }
 
 impl<'a> Generation<'a> {
-    pub fn new(points: Vec<(f32, f32)>, img: &'a Img) -> Generation<'a> {
-        let base = points
+    pub fn new(points: Vec<(f32, f32)>, img: &'a Img, cache: &'a mut Cache) -> Generation<'a> {
+        let base: Vec<Rc<RefCell<Member>>> = points
             .into_iter()
             .enumerate()
             .map(|(id, p)| {
@@ -49,14 +51,16 @@ impl<'a> Generation<'a> {
             .collect();
 
         let mut gen = Generation {
-            base,
+            base: vec![],
             img,
             mutations: 0,
             populations: vec![],
+            cache,
         };
 
-        let pop = Generation::triangulate(&gen, &gen.base);
+        let pop = Generation::triangulate(&mut gen, &base);
         gen.populations.push(pop);
+        gen.base = base;
         gen
     }
     pub fn mutate(&mut self, n: u32) -> () {
@@ -65,7 +69,7 @@ impl<'a> Generation<'a> {
             for point in &mut self.base {
                 members.push(point.borrow_mut().mutate());
             }
-            let pop = Generation::triangulate(&self, &members);
+            let pop = Generation::triangulate(self, &members);
             self.populations.push(pop);
         }
 
@@ -74,12 +78,12 @@ impl<'a> Generation<'a> {
         for base_member in &self.base {
             members.push(base_member.borrow_mut().merge_mutations_into_base());
         }
-        let pop = Generation::triangulate(&self, &members);
+        let pop = Generation::triangulate(self, &members);
         self.populations.push(pop);
     }
     // Create triangles from a set of points
     // Calculate fitness of each triangle and aggregate in each member
-    fn triangulate(generation: &Generation, members: &Vec<Rc<RefCell<Member>>>) -> Population {
+    fn triangulate(generation: &mut Generation, members: &Vec<Rc<RefCell<Member>>>) -> Population {
         // Calculate delaunay triangles from points
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
         let mut points = vec![];
@@ -92,12 +96,16 @@ impl<'a> Generation<'a> {
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new(triangle, members, &generation.img));
+            faces.push(Face::new(
+                triangle,
+                members,
+                generation,
+            ));
         }
 
         Population::new(faces, points)
     }
-    pub fn get_best_population(&self) -> Population {
+    pub fn get_best_population(&mut self) -> Population {
         let points = self.get_best_points();
 
         let mut delaunay = FloatDelaunayTriangulation::with_walk_locate();
@@ -116,7 +124,7 @@ impl<'a> Generation<'a> {
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new(triangle, &members, &self.img));
+            faces.push(Face::new(triangle, &members, self));
         }
 
         Population::new(faces, points)

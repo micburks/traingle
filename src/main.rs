@@ -1,14 +1,16 @@
 mod face;
-mod generation;
 mod img;
-mod member;
 mod point;
+mod member;
+mod generation;
+mod cache;
 
-use generation::Generation;
 use img::Img;
+use generation::Generation;
+use cache::Cache;
 
-use image::io::Reader as ImageReader;
 use std::time::Instant;
+use image::io::Reader as ImageReader;
 
 const SEGMENTS: u32 = 35;
 const GENERATIONS: u32 = 20;
@@ -38,13 +40,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("(w, h): {:?}", img.dimensions());
 
+    let mut cache = Cache::new();
+
     let now = Instant::now();
     let mut previous;
 
     // Calculate fitness and create 0th generation
     let initial_points = get_points(img.dimensions());
 
-    let gen = Generation::new(initial_points, &img);
+    let mut gen = Generation::new(initial_points, &img, &mut cache);
     let mut pop = gen.get_best_population();
     previous = pop.points;
     let time_to_generate = now.elapsed().as_secs();
@@ -61,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let now = Instant::now();
 
         // - Create generation from previous generation (new base members)
-        let mut gen = Generation::new(previous, &img);
+        let mut gen = Generation::new(previous, &img, &mut cache);
         // - Mutate each base member equal number of times
         // - Calculate fitness of each new member
         // - If fitness is higher than base member, its marked as beneficial
