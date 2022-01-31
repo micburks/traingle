@@ -41,18 +41,34 @@ impl Member {
             fitness: 0.0,
         }
     }
+    fn clone(&self) -> Member {
+        Member {
+            id: self.id,
+            source: self.source.clone(),
+            point: Box::new(*self.point.clone()),
+            mutations: vec![],
+            size: 0,
+            dimensions: self.dimensions,
+            n_points: self.n_points,
+            fitness: 0.0,
+        }
+    }
     pub fn mutate(&mut self) -> Rc<RefCell<Member>> {
         self.size += 1;
-        let random_point = Point::new(random(), random());
-        let mutation = Rc::new(RefCell::new(Member::new(
-            self.id,
-            MemberType::Mutation(random_point),
-            self.point.values(),
-            self.dimensions,
-            self.n_points,
-        )));
-        self.mutations.push(Rc::clone(&mutation));
-        mutation
+        if should_mutate(3.0 / 5.0) {
+            let random_point = Point::new(random(), random());
+            let mutation = Rc::new(RefCell::new(Member::new(
+                self.id,
+                MemberType::Mutation(random_point),
+                self.point.values(),
+                self.dimensions,
+                self.n_points,
+            )));
+            self.mutations.push(Rc::clone(&mutation));
+            mutation
+        } else {
+            Rc::new(RefCell::new(self.clone()))
+        }
     }
     pub fn merge_mutations_into_base(&mut self) -> Rc<RefCell<Member>> {
         let mut aggregate = Point::from(self.point.values());
@@ -103,16 +119,14 @@ impl Clone for MemberType {
     }
 }
 
-/*
-const MAX_DEV: f32 = 3.0;
+const MAX_DEV: f32 = 10.0;
 
 fn should_mutate(rate: f32) -> bool {
     thread_rng().gen_bool(rate as f64)
 }
-*/
 
 fn random() -> f32 {
     let val: f32 = thread_rng().sample(StandardNormal);
-    val * 5.0 + 1.0
-    // (val - 0.5) * MAX_DEV
+    // val * 5.0 + 1.0
+    (val - 0.5) * MAX_DEV
 }

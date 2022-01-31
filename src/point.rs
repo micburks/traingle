@@ -10,6 +10,9 @@ impl Point {
     pub fn from((x, y): (f32, f32)) -> Point {
         Point(x, y)
     }
+    pub fn clone(&self) -> Point {
+        Point::from(self.values())
+    }
     pub fn values(&self) -> (f32, f32) {
         (self.0, self.1)
     }
