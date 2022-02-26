@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     previous = pop.points;
     let time_to_generate = now.elapsed().as_secs();
 
-    gen.write_faces(String::from("output-0.jpg"), &mut pop.faces);
+    gen.write_faces(String::from("output/output-0.jpg"), &mut pop.faces);
     println!(
         "Generation 0, generated in {}s, written in {}s.",
         time_to_generate,
@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         previous = pop.points;
         let time_to_generate = now.elapsed().as_secs();
 
-        gen.write_faces(format!("output-{}.jpg", i + 1), &mut pop.faces);
+        gen.write_faces(format!("output/output-{}.jpg", i + 1), &mut pop.faces);
         println!(
             "Generation {}, generated in {}s, written in {}s.",
             i + 1,
