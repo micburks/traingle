@@ -7,6 +7,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 const SIZE_THRESHOLD: f32 = 0.001;
+const BENEFICIAL_DISTANCE: f32 = 100.0;
 
 #[derive(Debug)]
 pub struct Face {
@@ -120,11 +121,15 @@ impl Face {
             }
 
             let mut pixels_with_distance = vec![];
+            let mut beneficial_distances = 0.0;
             for pixel in pixels {
                 let distance = (mean.0 - pixel.0).powf(2.0)
                     + (mean.1 - pixel.1).powf(2.0)
                     + (mean.2 - pixel.2).powf(2.0);
                 pixels_with_distance.push((pixel, distance));
+                if distance < BENEFICIAL_DISTANCE {
+                    beneficial_distances += 1.0;
+                }
             }
 
             pixels_with_distance.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
@@ -153,8 +158,9 @@ impl Face {
             let fitness = if count == 0.0 {
                 0.0
             } else {
-                (m_2.0 + m_2.1 + m_2.2) / count
+                // (m_2.0 + m_2.1 + m_2.2) / count
                 // ((m_2.0 + m_2.1 + m_2.2) / count) * (triangle.area() / 100.0)
+                ((m_2.0 + m_2.1 + m_2.2) / count) * (beneficial_distances / pixels_with_distance.len() as f32)
             };
 
             let color = image::Rgb([mean.0 as u8, mean.1 as u8, mean.2 as u8]);
