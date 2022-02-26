@@ -132,7 +132,7 @@ impl Face {
                 }
             }
 
-            pixels_with_distance.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+            pixels_with_distance.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
             let mut count = 0.0;
             let mut mean = (0.0, 0.0, 0.0);
