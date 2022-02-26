@@ -119,7 +119,7 @@ impl Clone for MemberType {
     }
 }
 
-const MAX_DEV: f32 = 10.0;
+const MAX_DEV: f32 = 5.0;
 
 fn should_mutate(rate: f32) -> bool {
     thread_rng().gen_bool(rate as f64)

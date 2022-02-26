@@ -137,7 +137,7 @@ impl Face {
             let mut count = 0.0;
             let mut mean = (0.0, 0.0, 0.0);
             let mut m_2 = (0.0, 0.0, 0.0);
-            let end = (pixels_with_distance.len() as f32 * 0.9) as usize;
+            let end = (pixels_with_distance.len() as f32 * 0.95) as usize;
             for i in 0..end {
                 let pixel = pixels_with_distance[i].0;
                 count += 1.0;
