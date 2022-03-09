@@ -132,6 +132,7 @@ impl Face {
                 }
             }
 
+            // sort by distance ascending
             pixels_with_distance.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
             let mut count = 0.0;
@@ -158,9 +159,9 @@ impl Face {
             let fitness = if count == 0.0 {
                 0.0
             } else {
-                // (m_2.0 + m_2.1 + m_2.2) / count
-                // ((m_2.0 + m_2.1 + m_2.2) / count) * (triangle.area() / 100.0)
-                ((m_2.0 + m_2.1 + m_2.2) / count) * (beneficial_distances / pixels_with_distance.len() as f32)
+                ((m_2.0 + m_2.1 + m_2.2) / count)
+                    * (beneficial_distances / pixels_with_distance.len() as f32)
+                    * (pixels_with_distance.len() as f32)
             };
 
             let color = image::Rgb([mean.0 as u8, mean.1 as u8, mean.2 as u8]);
