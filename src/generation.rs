@@ -35,7 +35,35 @@ impl Population {
 }
 
 impl<'a> Generation<'a> {
-    pub fn new(points: Vec<(f32, f32)>, img: &'a Img, cache: &'a mut Cache) -> Generation<'a> {
+    pub fn new(previous: Population, img: &'a Img, cache: &'a mut Cache) -> Generation<'a> {
+        let base: Vec<Rc<RefCell<Member>>> = previous.points
+            .into_iter()
+            .enumerate()
+            .map(|(id, p)| {
+                Rc::new(RefCell::new(Member::new(
+                    id,
+                    MemberType::Base,
+                    p,
+                    img.dimensions(),
+                    img.points(),
+                )))
+            })
+            .collect();
+
+        let mut gen = Generation {
+            base: vec![],
+            img,
+            mutations: 0,
+            populations: vec![],
+            cache,
+        };
+
+        let pop = Generation::triangulate(&mut gen, &base);
+        gen.populations.push(pop);
+        gen.base = base;
+        gen
+    }
+    pub fn from(points: Vec<(f32, f32)>, img: &'a Img, cache: &'a mut Cache) -> Generation<'a> {
         let base: Vec<Rc<RefCell<Member>>> = points
             .into_iter()
             .enumerate()
@@ -168,12 +196,12 @@ impl<'a> Generation<'a> {
         println!("average fitness {}", sum / points.len() as f32);
         points
     }
-    pub fn write_faces(&self, filename: String, faces: &mut Vec<Face>) -> () {
+    pub fn write(&self, filename: String, population: &mut Population) -> () {
         let (width, height) = self.img.dimensions();
 
         // Rasterize image
         let num_pixels = (width * height) as u32;
-        let mut face_finder = FaceFinder::new(faces);
+        let mut face_finder = FaceFinder::new(&mut population.faces);
         let mut buf = vec![];
         '_outer_raster: for i in 0..num_pixels {
             // find containing triangle
@@ -213,7 +241,7 @@ impl<'a> Generation<'a> {
         ) {
             Ok(_) => println!(
                 "done, face: {}, pixels: {}/{}",
-                faces.len(),
+                population.faces.len(),
                 buf.len(),
                 width * height * 3.0
             ),
