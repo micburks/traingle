@@ -4,6 +4,7 @@ use super::point::Point;
 
 use spade::delaunay::VertexHandle;
 use std::cell::RefCell;
+use std::iter::FusedIterator;
 use std::rc::Rc;
 
 const SIZE_THRESHOLD: f32 = 0.001;
@@ -88,41 +89,24 @@ impl Face {
         let img = gen.img;
 
         let calc = |p1: Point, p2: Point, p3: Point| -> (f32, image::Rgb<u8>) {
-            // find color
-            let top_left = Point::new(min(p1.0, p2.0, p3.0), min(p1.1, p2.1, p3.1));
-            let bottom_right = Point::new(max(p1.0, p2.0, p3.0), max(p1.1, p2.1, p3.1));
+            let pixels = triangle.iter().map(|point| {
+                let p = img.get_pixel(point.0 as u32, point.1 as u32);
+                (p.0[0] as f32, p.0[1] as f32, p.0[2] as f32)
+            });
 
             let mut count = 0.0;
             let mut mean = (0.0, 0.0, 0.0);
-            let mut m_2 = (0.0, 0.0, 0.0);
-            let mut pixels = vec![];
-            for x in (top_left.0 as usize)..(bottom_right.0 as usize) {
-                for y in (top_left.1 as usize)..(bottom_right.1 as usize) {
-                    if triangle.contains(Point::new(x as f32, y as f32)) {
-                        let p = img.get_pixel(x as u32, y as u32);
-                        let pixel = (p.0[0] as f32, p.0[1] as f32, p.0[2] as f32);
-                        pixels.push(pixel);
-
-                        count += 1.0;
-                        let delta = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
-                        mean = (
-                            mean.0 + (delta.0 / count),
-                            mean.1 + (delta.1 / count),
-                            mean.2 + (delta.2 / count),
-                        );
-                        let delta2 = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
-                        m_2 = (
-                            m_2.0 + (delta.0 * delta2.0),
-                            m_2.1 + (delta.1 * delta2.1),
-                            m_2.2 + (delta.2 * delta2.2),
-                        );
-                    }
-                }
-            }
-
             let mut pixels_with_distance = vec![];
             let mut beneficial_distances = 0.0;
             for pixel in pixels {
+                count += 1.0;
+                let delta = (pixel.0 - mean.0, pixel.1 - mean.1, pixel.2 - mean.2);
+                mean = (
+                    mean.0 + (delta.0 / count),
+                    mean.1 + (delta.1 / count),
+                    mean.2 + (delta.2 / count),
+                );
+
                 let distance = (mean.0 - pixel.0).powf(2.0)
                     + (mean.1 - pixel.1).powf(2.0)
                     + (mean.2 - pixel.2).powf(2.0);
@@ -331,6 +315,72 @@ impl Triangle {
         let (x3, y3) = self.2.values();
 
         ((x1 * y2) + (x2 * y3) + (x3 * y1) - (y1 * x2) - (y2 * x3) - (y3 * x1)) / 2.0
+    }
+    pub fn iter(&self) -> PointIterator {
+        PointIterator::new(self)
+    }
+}
+
+impl<'a> IntoIterator for &'a Triangle {
+    type Item = Point;
+    type IntoIter = PointIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+pub struct PointIterator<'a> {
+    triangle: &'a Triangle,
+    left: f32,
+    right: f32,
+    top: f32,
+    bottom: f32,
+    x: f32,
+    y: f32,
+}
+
+impl<'a> PointIterator<'a> {
+    fn new(t: &'a Triangle) -> PointIterator {
+        let p1 = t.0;
+        let p2 = t.1;
+        let p3 = t.2;
+        let left = min(p1.0, p2.0, p3.0);
+        let right = max(p1.0, p2.0, p3.0);
+        let top = min(p1.1, p2.1, p3.1);
+        let bottom = max(p1.1, p2.1, p3.1);
+        PointIterator {
+            triangle: t,
+            left,
+            right,
+            top,
+            bottom,
+            x: left,
+            y: top,
+        }
+    }
+}
+
+impl<'a> FusedIterator for PointIterator<'a> {}
+impl<'a> Iterator for PointIterator<'a> {
+    type Item = Point;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // iterate over bounding square, only using points in this triangle
+        while self.x < self.right && self.y < self.bottom {
+            self.x += 1.0;
+            if self.x >= self.right {
+                self.x = self.left;
+                self.y += 1.0;
+                if self.y >= self.bottom {
+                    return Option::None;
+                }
+            }
+            let point = Point::new(self.x as f32, self.y as f32);
+            if self.triangle.contains(point) {
+                return Option::Some(point);
+            }
+        }
+        Option::None
     }
 }
 
