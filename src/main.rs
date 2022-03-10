@@ -16,7 +16,7 @@ use image::io::Reader as ImageReader;
 
 const SEGMENTS: u32 = 35;
 const GENERATIONS: u32 = 20;
-const MUTATIONS_PER_GENERATION: u32 = 10;
+const MUTATIONS_PER_GENERATION: u32 = 20;
 
 fn get_points((w, h): (f32, f32)) -> Vec<(f32, f32)> {
     // Create random points across image
