@@ -5,6 +5,9 @@ use rand_distr::StandardNormal;
 use std::cell::RefCell;
 use std::rc::Rc;
 
+const MAX_MUTATION_VALUE: f32 = 25.0;
+const MUTATION_FREQUENCY: f32 = 3.0 / 5.0;
+
 #[derive(Debug)]
 pub struct Member {
     pub id: usize,
@@ -55,7 +58,7 @@ impl Member {
     }
     pub fn mutate(&mut self) -> Rc<RefCell<Member>> {
         self.size += 1;
-        if should_mutate(3.0 / 5.0) {
+        if should_mutate(MUTATION_FREQUENCY) {
             let random_point = Point::new(random(), random());
             let mutation = Rc::new(RefCell::new(Member::new(
                 self.id,
@@ -119,8 +122,6 @@ impl Clone for MemberType {
     }
 }
 
-const MAX_DEV: f32 = 5.0;
-
 fn should_mutate(rate: f32) -> bool {
     thread_rng().gen_bool(rate as f64)
 }
@@ -128,5 +129,5 @@ fn should_mutate(rate: f32) -> bool {
 fn random() -> f32 {
     let val: f32 = thread_rng().sample(StandardNormal);
     // val * 5.0 + 1.0
-    (val - 0.5) * MAX_DEV
+    (val - 0.5) * MAX_MUTATION_VALUE
 }
