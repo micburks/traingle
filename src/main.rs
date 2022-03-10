@@ -1,9 +1,11 @@
-mod face;
 mod img;
+mod face;
+mod cache;
 mod point;
 mod member;
+mod triangle;
 mod generation;
-mod cache;
+mod pixel_group;
 
 use img::Img;
 use generation::Generation;
