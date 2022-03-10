@@ -88,8 +88,8 @@ impl Face {
 
         let img = gen.img;
 
-        let calc = |p1: Point, p2: Point, p3: Point| -> (f32, image::Rgb<u8>) {
-            let pixels = triangle.iter().map(|point| {
+        let calc = || -> (f32, image::Rgb<u8>) {
+            let mut pixels = triangle.iter().map(|point| {
                 let p = img.get_pixel(point.0 as u32, point.1 as u32);
                 (p.0[0] as f32, p.0[1] as f32, p.0[2] as f32)
             });
