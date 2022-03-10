@@ -30,28 +30,6 @@ impl Face {
     ) -> Face {
         let triangle = Triangle::new(del_triangle);
 
-        let mut v1 = triangle.0;
-        let mut v2 = triangle.1;
-        let mut v3 = triangle.2;
-
-        // Sort so v1.y < v2.y < v3.y
-        if v2.1 > v1.1 {
-            let tmp = v1;
-            v1 = v2;
-            v2 = tmp;
-        }
-        if v3.1 > v2.1 {
-            let tmp = v2;
-            v2 = v3;
-            v3 = tmp;
-
-            if v2.1 > v1.1 {
-                let tmp = v1;
-                v1 = v2;
-                v2 = tmp;
-            }
-        }
-
         // Associate with members
         let mut m1_opt = None;
         let mut m2_opt = None;
@@ -65,15 +43,15 @@ impl Face {
                 }
             }
             let point = *m.borrow().point;
-            if point.0 == v1.0 && point.1 == v1.1 {
+            if point.0 == triangle.0.0 && point.1 == triangle.0.1 {
                 m1_opt = Some(Rc::clone(&m));
                 continue;
             }
-            if point.0 == v2.0 && point.1 == v2.1 {
+            if point.0 == triangle.1.0 && point.1 == triangle.1.1 {
                 m2_opt = Some(Rc::clone(&m));
                 continue;
             }
-            if point.0 == v3.0 && point.1 == v3.1 {
+            if point.0 == triangle.2.0 && point.1 == triangle.2.1 {
                 m3_opt = Some(Rc::clone(&m));
                 continue;
             }
@@ -81,10 +59,6 @@ impl Face {
         let m1 = m1_opt.unwrap();
         let m2 = m2_opt.unwrap();
         let m3 = m3_opt.unwrap();
-
-        let p1 = *m1.borrow().point;
-        let p2 = *m2.borrow().point;
-        let p3 = *m3.borrow().point;
 
         let img = gen.img;
 
@@ -153,7 +127,7 @@ impl Face {
             (fitness, color)
         };
 
-        let (fitness, color) = gen.cache.insert(p1, p2, p3, calc);
+        let (fitness, color) = gen.cache.insert(triangle.0, triangle.1, triangle.2, calc);
 
         m1.borrow_mut().add_fitness(fitness);
         m2.borrow_mut().add_fitness(fitness);
