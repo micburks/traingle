@@ -176,6 +176,14 @@ impl Group {
             * distance_factor
     }
 }
+
+impl Copy for Group {}
+impl Clone for Group {
+    fn clone(&self) -> Group {
+        Group {
+            fitness: self.fitness,
+            color: self.color,
+        }
     }
 }
 
