@@ -1,5 +1,5 @@
 // max distance used to group pixels into bins
-const BENEFICIAL_DISTANCE: f32 = 50.0;
+const BENEFICIAL_DISTANCE: f32 = 150.0;
 
 // if main bin contains less than this percent of total pixels,
 //  pixels are used from multiple bins to calculate color/fitness
@@ -27,7 +27,7 @@ impl Group {
                 // println!("pixels empty?");
                 return Group {
                     fitness: 0.0,
-                    color: image::Rgb([0, 0, 0]),
+                    color: image::Rgb([255, 0, 255]),
                 };
             }
         };
@@ -124,40 +124,29 @@ impl Group {
             }
         }
 
-        let group_size_multiplier = 10.0 / (total as f32);
-
+        let group_size_multiplier = 1.0; // (total as f32) / 10.0;
+        let main_bin_percent_size = bins[0].count as f32 / total as f32;
         let bin_size_multiplier = if substantial_bins == 0 {
             0.0
         } else if substantial_bins == 1 {
+            total as f32
+            // 1000.0
+        } else if main_bin_percent_size > 0.9 {
             100.0
+        } else if main_bin_percent_size > 0.75 {
+            10.0
         } else {
-            (bins[0].count as f32 / total as f32).powf(3.0)
+            1.0
         };
-
         let bin_count_factor = 1.0 / (substantial_bins as f32).powf(2.0);
-
-        let distance_factor = if cumulative_distance_from_mean == 0.0 {
-            1_000.0
+        let distance_factor = if cumulative_distance_from_mean < 10.0 {
+            1.0
         } else if cumulative_distance_from_mean > 1000.0 {
             // 1 x 10^-6
             0.000_001
         } else {
-            if cumulative_distance_from_mean < 0.1 {
-                println!(
-                    "{} - {}",
-                    cumulative_distance_from_mean.powf(3.0),
-                    1.0 / cumulative_distance_from_mean.powf(3.0)
-                );
-            }
             1.0 / cumulative_distance_from_mean.powf(3.0)
         };
-
-        /*
-        let n_bins_sq: i32 = substantial_bins.pow(2);
-        let largest_bin_coverage = bins[0].count / total;
-        // (1 / n_bins**2) * (bin_area / total_area)
-        (1.0 / n_bins_sq as f32) * largest_bin_coverage as f32
-        */
 
         // only 1 bin
         // - reward GROUP size
@@ -166,7 +155,7 @@ impl Group {
         // - punish bins over 2
         // - punish distance from mean
 
-        // reward total group size
+        // reward total group size - ???
         group_size_multiplier
             // reward bin size
             * bin_size_multiplier

@@ -1,7 +1,7 @@
-use super::img::Img;
 use super::cache::Cache;
-use super::geom::{Triangle, Point};
 use super::face::{Face, FaceFinder};
+use super::geom::{Point, Triangle};
+use super::img::Img;
 use super::member::{Member, MemberType};
 
 use spade::delaunay::FloatDelaunayTriangulation;
@@ -9,6 +9,8 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 //use spade::delaunay::{DelaunayTriangulation, DelaunayWalkLocate, FloatDelaunayTriangulation};
+
+const FACE_SIZE_THRESHOLD: f32 = 10.0;
 
 pub struct Generation<'a> {
     base: Vec<Rc<RefCell<Member>>>,
@@ -36,7 +38,8 @@ impl Population {
 
 impl<'a> Generation<'a> {
     pub fn new(previous: Population, img: &'a Img, cache: &'a mut Cache) -> Generation<'a> {
-        let base: Vec<Rc<RefCell<Member>>> = previous.points
+        let base: Vec<Rc<RefCell<Member>>> = previous
+            .points
             .into_iter()
             .enumerate()
             .map(|(id, p)| {
@@ -124,11 +127,7 @@ impl<'a> Generation<'a> {
         let mut faces: Vec<Face> = vec![];
         for face in delaunay.triangles() {
             let triangle = face.as_triangle();
-            faces.push(Face::new(
-                triangle,
-                members,
-                generation,
-            ));
+            faces.push(Face::new(triangle, members, generation));
         }
 
         Population::new(faces, points)

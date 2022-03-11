@@ -5,8 +5,8 @@ use rand_distr::StandardNormal;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const MAX_MUTATION_VALUE: f32 = 10.0;
-const MUTATION_FREQUENCY: f32 = 1.0 / 5.0;
+const MAX_MUTATION_VALUE: f32 = 5.0;
+const MUTATION_FREQUENCY: f32 = 3.0 / 5.0;
 
 #[derive(Debug)]
 pub struct Member {
