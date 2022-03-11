@@ -8,8 +8,6 @@ use spade::delaunay::VertexHandle;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-const SIZE_THRESHOLD: f32 = 0.001;
-
 #[derive(Debug)]
 pub struct Face {
     pub points: (
@@ -111,14 +109,7 @@ impl<'a> FaceFinder<'a> {
                 if self.faces[i as usize].triangle.contains(point) {
                     self.last_index = i as i32;
                     let i = i as usize;
-                    // if self.faces[i].triangle.area() < SIZE_THRESHOLD {
                     return Option::Some(&mut self.faces[i]);
-                    /*
-                    } else {
-                        let i = if i > 0 { i - 1 } else { i + 1 };
-                        return Option::Some(&mut self.faces[i]);
-                    }
-                    */
                 }
                 i -= 1;
             }
@@ -126,14 +117,7 @@ impl<'a> FaceFinder<'a> {
                 if self.faces[j as usize].triangle.contains(point) {
                     self.last_index = j as i32;
                     let j = j as usize;
-                    // if self.faces[j].triangle.area() < SIZE_THRESHOLD {
                     return Option::Some(&mut self.faces[j]);
-                    /*
-                    } else {
-                        let j = if j > 0 { j - 1 } else { j + 1 };
-                        return Option::Some(&mut self.faces[j]);
-                    }
-                    */
                 }
                 j += 1;
             }

@@ -1,6 +1,15 @@
-const BENEFICIAL_DISTANCE: f32 = 100.0;
-const MIN_PIXEL_PERCENT: f32 = 0.75;
-const BIN_PERCENT_THRESHOLD: f32 = 0.05;
+// max distance used to group pixels into bins
+const BENEFICIAL_DISTANCE: f32 = 50.0;
+
+// if main bin contains less than this percent of total pixels,
+//  pixels are used from multiple bins to calculate color/fitness
+const MIN_PIXEL_PERCENT: f32 = 0.95;
+
+// bin must contain this percent of total pixels to be considered substantial
+const SUBSTANTIAL_BIN_AREA_PERCENT_THRESHOLD: f32 = 0.01;
+
+// entire group must contain this many pixels to have fitness
+const TOTAL_GROUP_SIZE_THRESHOLD: i32 = 10;
 
 pub struct Group {
     pub color: image::Rgb<u8>,
@@ -31,9 +40,8 @@ impl Group {
             total += 1;
             // loop bins - bin in bins
             for bin in &mut bins {
-                // if current pixel is close to this bin, push pixel into bin
                 let dist = distance(bin.mean, pixel);
-                // - if distance(pixel, bin.mean) < threshold { bin.values.add(pixel) }
+                // if current pixel is close to this bin, push pixel into bin
                 if dist < BENEFICIAL_DISTANCE {
                     // - bin.values.add - calculates moving mean, size
                     bin.add(pixel);
@@ -102,25 +110,46 @@ impl Group {
             fitness = Group::fitness(&bins, total, cumulative_distance_from_mean);
             color = image::Rgb([mean.0 as u8, mean.1 as u8, mean.2 as u8]);
         }
-        Group {
-            color,
-            fitness,
-        }
+        Group { color, fitness }
     }
     fn fitness(bins: &Vec<GroupBin>, total: i32, cumulative_distance_from_mean: f32) -> f32 {
+        if total < TOTAL_GROUP_SIZE_THRESHOLD {
+            return 0.0;
+        }
         let mut substantial_bins: i32 = 0;
-        let bin_threshold = ((total as f32) * BIN_PERCENT_THRESHOLD) as i32;
+        let bin_threshold = ((total as f32) * SUBSTANTIAL_BIN_AREA_PERCENT_THRESHOLD) as i32;
         for bin in bins {
             if bin.count > bin_threshold {
                 substantial_bins += 1;
             }
         }
+
+        let group_size_multiplier = 10.0 / (total as f32);
+
         let bin_size_multiplier = if substantial_bins == 0 {
             0.0
         } else if substantial_bins == 1 {
-            1.0
+            100.0
         } else {
-            bins[0].count as f32 / total as f32
+            (bins[0].count as f32 / total as f32).powf(3.0)
+        };
+
+        let bin_count_factor = 1.0 / (substantial_bins as f32).powf(2.0);
+
+        let distance_factor = if cumulative_distance_from_mean == 0.0 {
+            1_000.0
+        } else if cumulative_distance_from_mean > 1000.0 {
+            // 1 x 10^-6
+            0.000_001
+        } else {
+            if cumulative_distance_from_mean < 0.1 {
+                println!(
+                    "{} - {}",
+                    cumulative_distance_from_mean.powf(3.0),
+                    1.0 / cumulative_distance_from_mean.powf(3.0)
+                );
+            }
+            1.0 / cumulative_distance_from_mean.powf(3.0)
         };
 
         /*
@@ -131,18 +160,22 @@ impl Group {
         */
 
         // only 1 bin
-        // - reward size
+        // - reward GROUP size
         // multiple bins
         // - reward percent size of largest bin
         // - punish bins over 2
         // - punish distance from mean
 
-        // reward bin size
-        bin_size_multiplier
+        // reward total group size
+        group_size_multiplier
+            // reward bin size
+            * bin_size_multiplier
             // punish multiple substantial bins
-            * (1.0 / substantial_bins as f32)
+            * bin_count_factor
             // punish distance from mean
-            * (1000000.0 / cumulative_distance_from_mean as f32)
+            * distance_factor
+    }
+}
     }
 }
 
