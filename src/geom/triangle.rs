@@ -104,6 +104,40 @@ impl Triangle {
             return true;
         }
 
+        // Sort so p0.x < p1.x < p2.x
+        let (mut p0, mut p1, mut p2) = self.vertices;
+        if p1.0 > p0.0 {
+            let tmp = p0;
+            p0 = p1;
+            p1 = tmp;
+        }
+        if p2.0 > p1.0 {
+            let tmp = p1;
+            p1 = p2;
+            p2 = tmp;
+
+            if p1.0 > p0.0 {
+                let tmp = p0;
+                p0 = p1;
+                p1 = tmp;
+            }
+        }
+        let m10 = (p1.1 - p0.1) / (p1.0 - p0.0);
+        let y10 = (m10 * p.0) + (p0.1 - (m10 * p0.0));
+        if (y10 - p.1).abs() < 0.0001 {
+            return true;
+        }
+        let m20 = (p2.1 - p0.1) / (p2.0 - p0.0);
+        let y20 = (m20 * p.0) + (p0.1 - (m20 * p0.0));
+        if (y20 - p.1).abs() < 0.0001 {
+            return true;
+        }
+        let m21 = (p2.1 - p1.1) / (p2.0 - p1.0);
+        let y21 = (m21 * p.0) + (p1.1 - (m21 * p1.0));
+        if (y21 - p.1).abs() < 0.0001 {
+            return true;
+        }
+
         let v0 = self.vertices.2 - self.vertices.0;
         let v1 = self.vertices.1 - self.vertices.0;
         let v2 = p - self.vertices.0;
@@ -119,11 +153,13 @@ impl Triangle {
         let v = det(Point::new(d00, d01), Point::new(d02, d12)) * inv_denom;
         (u >= 0.0) && (v >= 0.0) && (u + v <= 1.0)
     }
-    pub fn area(&self) -> f32 {
-        let (x1, y1) = self.vertices.0.values();
-        let (x2, y2) = self.vertices.1.values();
-        let (x3, y3) = self.vertices.2.values();
-
+    pub fn area(t: [VertexHandle<Point, ()>; 3]) -> f32 {
+        let p1 = *t[0];
+        let p2 = *t[1];
+        let p3 = *t[2];
+        let (x1, y1) = p1.values();
+        let (x2, y2) = p2.values();
+        let (x3, y3) = p3.values();
         ((x1 * y2) + (x2 * y3) + (x3 * y1) - (y1 * x2) - (y2 * x3) - (y3 * x1)) / 2.0
     }
     pub fn iter(&self) -> PointIterator {

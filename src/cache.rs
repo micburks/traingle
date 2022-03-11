@@ -1,4 +1,4 @@
-use super::point::Point;
+use super::geom::Point;
 use super::pixel_group::Group;
 
 use std::collections::HashMap;

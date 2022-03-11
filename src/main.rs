@@ -1,9 +1,8 @@
 mod img;
 mod face;
+mod geom;
 mod cache;
-mod point;
 mod member;
-mod triangle;
 mod generation;
 mod pixel_group;
 

@@ -1,4 +1,4 @@
-use super::point::Point;
+use super::geom::Point;
 
 use rand::prelude::*;
 use rand_distr::StandardNormal;

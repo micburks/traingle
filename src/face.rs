@@ -1,8 +1,7 @@
-use super::generation::Generation;
-use super::pixel_group::Group;
-use super::triangle::Triangle;
 use super::member::Member;
-use super::point::Point;
+use super::pixel_group::Group;
+use super::generation::Generation;
+use super::geom::{Point, Triangle};
 
 use spade::delaunay::VertexHandle;
 use std::cell::RefCell;

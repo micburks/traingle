@@ -1,8 +1,8 @@
-use super::cache::Cache;
-use super::face::{Face, FaceFinder};
 use super::img::Img;
+use super::cache::Cache;
+use super::geom::{Triangle, Point};
+use super::face::{Face, FaceFinder};
 use super::member::{Member, MemberType};
-use super::point::Point;
 
 use spade::delaunay::FloatDelaunayTriangulation;
 use std::cell::RefCell;
