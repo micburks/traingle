@@ -65,26 +65,24 @@ impl Face {
 
         let img = gen.img;
 
-        let calc = || -> (f32, image::Rgb<u8>) {
+        let calc = || -> Group {
             let mut pixels = triangle.iter().map(|point| {
                 let p = img.get_pixel(point.0 as u32, point.1 as u32);
                 (p.0[0] as f32, p.0[1] as f32, p.0[2] as f32)
             });
-            let group = Group::new(&mut pixels);
-            // println!("{} - {:?}", group.fitness, group.color);
-            (group.fitness, group.color)
+            Group::new(&mut pixels)
         };
 
-        let (fitness, color) = gen.cache.insert(triangle.0, triangle.1, triangle.2, calc);
+        let group = gen.cache.insert(triangle.vertices.0, triangle.vertices.1, triangle.vertices.2, calc);
 
-        m1.borrow_mut().add_fitness(fitness);
-        m2.borrow_mut().add_fitness(fitness);
-        m3.borrow_mut().add_fitness(fitness);
+        m1.borrow_mut().add_fitness(group.fitness);
+        m2.borrow_mut().add_fitness(group.fitness);
+        m3.borrow_mut().add_fitness(group.fitness);
 
         Face {
             points: (m1, m2, m3),
-            color,
-            fitness,
+            color: group.color,
+            fitness: group.fitness,
             triangle,
         }
     }

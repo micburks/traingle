@@ -1,9 +1,10 @@
 use super::point::Point;
+use super::pixel_group::Group;
 
 use std::collections::HashMap;
 
 pub struct Cache {
-    store: HashMap<String, (f32, image::Rgb<u8>)>,
+    store: HashMap<String, Group>,
 }
 
 impl Cache {
@@ -18,9 +19,9 @@ impl Cache {
         p2: Point,
         p3: Point,
         mut f: F,
-    ) -> (f32, image::Rgb<u8>)
+    ) -> Group
     where
-        F: FnMut() -> (f32, image::Rgb<u8>),
+        F: FnMut() -> Group,
     {
         *self
             .store
