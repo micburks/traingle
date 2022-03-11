@@ -43,15 +43,18 @@ impl Face {
                 }
             }
             let point = *m.borrow().point;
-            if point.0 == triangle.0.0 && point.1 == triangle.0.1 {
+            let vertex = triangle.vertices.0;
+            if point.0 == vertex.0 && point.1 == vertex.1 {
                 m1_opt = Some(Rc::clone(&m));
                 continue;
             }
-            if point.0 == triangle.1.0 && point.1 == triangle.1.1 {
+            let vertex = triangle.vertices.1;
+            if point.0 == vertex.0 && point.1 == vertex.1 {
                 m2_opt = Some(Rc::clone(&m));
                 continue;
             }
-            if point.0 == triangle.2.0 && point.1 == triangle.2.1 {
+            let vertex = triangle.vertices.2;
+            if point.0 == vertex.0 && point.1 == vertex.1 {
                 m3_opt = Some(Rc::clone(&m));
                 continue;
             }
